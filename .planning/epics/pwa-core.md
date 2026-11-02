@@ -32,7 +32,7 @@ All math, steps and recognition logic lives in `src/core/` (pure TypeScript, no 
 | # | Feature | Status | Spec | Plan | Depends On |
 |---|---------|--------|------|------|------------|
 | 1 | project-setup | done | [spec](../specs/project-setup.md) | [plan](../plans/project-setup.md) | — |
-| 2 | calc-engine | todo | — | — | #1 |
+| 2 | calc-engine | planned | [spec](../specs/calc-engine.md) | [plan](../plans/calc-engine.md) | #1 |
 | 3 | basic-mode-ui | todo | — | — | #2 |
 | 4 | steps-add-sub | todo | — | — | #2 |
 | 5 | steps-mul-div | todo | — | — | #4 |

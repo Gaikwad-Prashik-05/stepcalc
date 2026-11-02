@@ -4,7 +4,7 @@ A calculator that doesn't just give the answer — it shows the working, the way
 
 **Live:** https://gaikwad-prashik-05.github.io/stepcalc/
 
-> Early stage: the app shell is live and installable; the calculator itself is being built feature by feature (see [roadmap](.planning/epics/)).
+> Early stage: type an expression (e.g. `550 ÷ 600`, `50 + 10%`, `Ans × 3`) and press Enter. Exact decimals, phone-style percent, history saved on your device. The keypad and Steps view are next (see [roadmap](.planning/epics/)).
 
 ## Planned
 
