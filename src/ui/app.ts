@@ -1,7 +1,9 @@
 import { calculate, ERROR_MESSAGES } from '../core/engine';
 import { addEntry, clearHistory, groupByDay, type HistoryEntry } from '../core/history';
 import { applyKey, type Key } from '../core/keypad';
+import { columnWork } from '../core/steps';
 import { loadHistory, saveHistory } from './history-store';
+import { createStepsView } from './steps-view';
 
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, className?: string, text?: string): HTMLElementTagNameMap[K] {
   const node = document.createElement(tag);
@@ -61,6 +63,7 @@ export function renderApp(root: HTMLElement): void {
     keypad.append(button);
   }
   form.append(label, input, result, keypad);
+  const steps = createStepsView();
 
   keypad.addEventListener('click', (event) => {
     const key = (event.target as HTMLElement).closest<HTMLButtonElement>('.key')?.dataset.key as Key | '=' | undefined;
@@ -69,7 +72,7 @@ export function renderApp(root: HTMLElement): void {
     input.value = next.text;
     input.setSelectionRange(next.start, next.end);
     justEvaluated = false;
-    if (key === 'AC') { result.textContent = ''; result.classList.remove('is-error'); }
+    if (key === 'AC') { result.textContent = ''; result.classList.remove('is-error'); steps.show(null); }
   });
   // Keypad buttons must not steal focus, or the caret position is lost on touch.
   keypad.addEventListener('pointerdown', (event) => event.preventDefault());
@@ -78,6 +81,7 @@ export function renderApp(root: HTMLElement): void {
     if (event.key === 'Escape') {
       input.value = '';
       result.textContent = '';
+      steps.show(null);
       justEvaluated = false;
     } else if (event.key === '=') {
       event.preventDefault();
@@ -119,6 +123,7 @@ export function renderApp(root: HTMLElement): void {
     const expression = input.value.trim();
     const outcome = calculate(expression, ans);
     result.classList.toggle('is-error', !outcome.ok);
+    steps.show(outcome.ok ? columnWork(expression) : null);
     if (!outcome.ok) {
       result.textContent = ERROR_MESSAGES[outcome.error];
       return; // Ans stays the last successful result
@@ -140,5 +145,5 @@ export function renderApp(root: HTMLElement): void {
   });
 
   renderHistory();
-  root.replaceChildren(header, form, historySection);
+  root.replaceChildren(header, form, steps.element, historySection);
 }
