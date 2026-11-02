@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 
 // core must stay pure TS so the native wrappers (Capacitor/Tauri) can reuse it unchanged.
 const FORBIDDEN_GLOBALS = /\b(document|window|navigator|localStorage|sessionStorage|HTML\w*Element)\b/;
-const IMPORTS_UI = /from\s+['"][^'"]*\/ui\//;
+const IMPORTS_UI = /(from\s+|import\s*\(?\s*)['"][^'"]*\/ui(\/|['"])/;
 const coreDir = import.meta.dirname;
 
 function coreSourceFiles(dir: string): string[] {

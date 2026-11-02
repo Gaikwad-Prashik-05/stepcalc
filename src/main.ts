@@ -14,9 +14,10 @@ const updateSW = registerSW({
   // Browsers only re-check the service worker on navigation, so a long-open tab or installed app would never see a deploy.
   onRegisteredSW: (_url, registration) => {
     if (!registration) return;
-    setInterval(() => registration.update(), UPDATE_CHECK_MS);
+    // update() rejects while offline; nothing to do until the next check.
+    setInterval(() => registration.update().catch(() => {}), UPDATE_CHECK_MS);
     document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'visible') registration.update();
+      if (document.visibilityState === 'visible') registration.update().catch(() => {});
     });
   },
 });
