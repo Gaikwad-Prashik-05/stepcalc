@@ -28,9 +28,16 @@ describe('formatNumber', () => {
     ['123456789012345.6', '123,456,789,012,346'],
     ['12345678901234.5678', '12,345,678,901,235'],
     ['0.000000000123', '1.23e-10'],
+    // exponent form keeps 12 significant digits too
+    ['100000000000000000001', '1e+20'],
+    ['123456789012345678', '1.23456789012e+17'],
     ['0.000000001', '0.000000001'],
     ['-0.00000000025', '-2.5e-10'],
   ])('%s -> %s', (exact, display) => {
     expect(formatNumber(exact)).toBe(display);
   });
+});
+
+it('formats a huge exponent without expanding its digits', () => {
+  expect(formatNumber('1e+999999999')).toBe('1e+999999999');
 });

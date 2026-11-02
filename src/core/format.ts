@@ -11,7 +11,8 @@ const EXPONENT_BELOW = math.bignumber('1e-9');
  */
 export function formatNumber(exact: string): string {
   const value = math.bignumber(exact);
-  const intDigits = value.abs().lt(1) ? 0 : value.abs().floor().toFixed().length;
+  // From the exponent, not toFixed(): 9^9^9 has ~370 million integer digits.
+  const intDigits = value.abs().lt(1) ? 0 : value.e + 1;
   const rounded =
     intDigits > SIGNIFICANT_DIGITS
       ? value.toDecimalPlaces(0, ROUND_HALF_UP)
@@ -19,7 +20,9 @@ export function formatNumber(exact: string): string {
   if (rounded.isZero()) return '0';
 
   const abs = rounded.abs();
-  if (abs.gte(EXPONENT_AT_OR_ABOVE) || abs.lt(EXPONENT_BELOW)) return rounded.toExponential();
+  if (abs.gte(EXPONENT_AT_OR_ABOVE) || abs.lt(EXPONENT_BELOW)) {
+    return rounded.toSignificantDigits(SIGNIFICANT_DIGITS, ROUND_HALF_UP).toExponential();
+  }
 
   const [intPart, fracPart] = rounded.toFixed().split('.');
   const grouped = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ',');

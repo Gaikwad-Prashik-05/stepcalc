@@ -99,3 +99,10 @@ describe('calculate: errors never throw', () => {
     expect(ERROR_MESSAGES.invalid).toBe('Invalid format');
   });
 });
+
+it('handles a power with hundreds of millions of digits quickly', () => {
+  const start = Date.now();
+  const outcome = calculate('9^9^9');
+  expect(outcome.ok && outcome.display).toMatch(/^4\.28124773176e\+369693099$/);
+  expect(Date.now() - start).toBeLessThan(2000);
+});
