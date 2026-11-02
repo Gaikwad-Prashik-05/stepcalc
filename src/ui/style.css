@@ -1,0 +1,56 @@
+:root {
+  --bg: #000;
+  --surface: #2b2d31;
+  --text: #f1f3f4;
+  --muted: #9aa0a6;
+  --accent: #a8c7fa;
+  --accent-text: #062e6f;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  min-height: 100dvh;
+  background: var(--bg);
+  color: var(--text);
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+
+#app {
+  min-height: 100dvh;
+  display: grid;
+  place-content: center;
+  gap: 0.5rem;
+  padding: 16px;
+  text-align: center;
+}
+
+h1 { margin: 0; font-size: clamp(2rem, 9vw, 3rem); font-weight: 600; }
+.tagline { margin: 0; color: var(--accent); }
+.wiring { margin: 1.5rem 0 0; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+.update-bar {
+  position: fixed;
+  inset: auto 16px 16px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.75rem 1rem;
+  border-radius: 1rem;
+  background: var(--surface);
+}
+
+.update-bar button {
+  border: 0;
+  border-radius: 999px;
+  padding: 0.5rem 1rem;
+  font: inherit;
+  font-weight: 600;
+  background: var(--accent);
+  color: var(--accent-text);
+  cursor: pointer;
+}
+.update-bar button:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
