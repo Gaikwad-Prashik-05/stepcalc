@@ -34,6 +34,18 @@ body {
 }
 
 h1 { margin: 0; font-size: 2rem; font-weight: 700; }
+.app-header { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); }
+.mode-select {
+  min-height: 44px;
+  padding: 0 var(--space-3);
+  border: 0;
+  border-radius: 999px;
+  background: var(--surface-strong);
+  color: var(--text);
+  font: inherit;
+}
+.mode-select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .tagline { margin: var(--space-1) 0 0; color: var(--accent); }
 
 .calc { display: grid; gap: var(--space-2); }
@@ -47,7 +59,8 @@ h1 { margin: 0; font-size: 2rem; font-weight: 700; }
   background: var(--surface);
   color: var(--text);
   font: inherit;
-  font-size: 1.25rem;
+  font-size: 1.75rem;
+  text-align: right;
 }
 .calc-input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .calc-result {
@@ -58,6 +71,24 @@ h1 { margin: 0; font-size: 2rem; font-weight: 700; }
   overflow-wrap: anywhere;
   font-variant-numeric: tabular-nums;
 }
+.keypad { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--space-2); margin-top: var(--space-2); }
+.key {
+  min-height: 64px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 1.5rem;
+  cursor: pointer;
+  touch-action: manipulation;
+  user-select: none;
+}
+.key:active { filter: brightness(1.4); }
+.key:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.key-fn, .key-op { background: var(--surface-strong); color: var(--accent); }
+.key-equals { background: var(--accent); color: var(--accent-text); font-weight: 700; }
+@media (max-height: 640px) { .key { min-height: 52px; } }
 .calc-result.is-error { color: var(--error); font-size: 1.25rem; font-weight: 500; }
 
 .history { display: grid; gap: var(--space-3); }
