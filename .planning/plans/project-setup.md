@@ -3,7 +3,7 @@
 **Spec**: .planning/specs/project-setup.md
 **Epic**: pwa-core (Feature 1)
 **Created**: 2026-11-02
-**Status**: draft
+**Status**: done
 
 ---
 
