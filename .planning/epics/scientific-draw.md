@@ -1,7 +1,7 @@
 # Epic: scientific-draw
 
 **Created**: 2026-11-02
-**Status**: planning
+**Status**: in progress
 **Owner**: Prashik Gaikwad
 
 ---
@@ -25,7 +25,7 @@ Turn the calculator into an engineering tool (fx-style scientific functions, uni
 
 | # | Feature | Status | Spec | Plan | Depends On |
 |---|---------|--------|------|------|------------|
-| 7 | scientific-mode | todo | — | — | pwa-core |
+| 7 | scientific-mode | built, not committed | specs/scientific-mode.md | — | pwa-core |
 | 8 | variables-solver | todo | — | — | #7 |
 | 9 | conversion-mode | todo | — | — | pwa-core |
 | 10 | draw-recognizer | todo | — | — | #7 |

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatNumber } from './format';
+import { formatEng, formatNumber, toFraction } from './format';
 
 describe('formatNumber', () => {
   it.each([
@@ -40,4 +40,28 @@ describe('formatNumber', () => {
 
 it('formats a huge exponent without expanding its digits', () => {
   expect(formatNumber('1e+999999999')).toBe('1e+999999999');
+});
+
+describe('formatEng: exponent a multiple of 3', () => {
+  it.each([
+    ['1500', '1.5×10³'], ['42', '42'], ['0.5', '500×10⁻³'], ['0.000123', '123×10⁻⁶'],
+    ['-25000', '-25×10³'], ['1e21', '1×10²¹'], ['0', '0'], ['999.9999999999999', '1×10³'],
+    ['123456789012345', '123.456789012×10¹²'],
+  ])('%s → %s', (exact, expected) => {
+    expect(formatEng(exact)).toBe(expected);
+  });
+});
+
+describe('toFraction', () => {
+  const third = '0.3333333333333333333333333333333333333333333333333333333333333333';
+  it.each([
+    [third, '1/3'], ['0.5', '1/2'], ['-0.75', '-3/4'], ['1.6666666666666666666666666666666666666666666666666666666666666667', '5/3'],
+    ['0.0001', '1/10,000'], ['2.5', '5/2'],
+  ])('%s → %s', (exact, expected) => {
+    expect(toFraction(exact)).toBe(expected);
+  });
+
+  it.each([['3'], ['0'], ['0.00001'], ['3.14159265358979323846264338327950288419716939937510582097494459']])('no fraction for %s', (exact) => {
+    expect(toFraction(exact)).toBeNull();
+  });
 });

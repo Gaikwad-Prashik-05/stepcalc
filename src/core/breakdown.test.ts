@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { calculate } from './engine';
+import { calculate, type CalcOptions } from './engine';
 import { workingFor, type Working } from './breakdown';
 
-function breakdown(expression: string, ans?: string) {
-  const w = workingFor(expression, ans);
+function breakdown(expression: string, ans?: string, options?: CalcOptions) {
+  const w = workingFor(expression, ans, options);
   if (w?.kind !== 'breakdown') throw new Error(`expected a breakdown for ${expression}, got ${w?.kind}`);
   return w;
 }
@@ -83,5 +83,61 @@ describe('workingFor agrees with the engine', () => {
       const w = workingFor(expr);
       expect(w?.kind, expr).toBe('breakdown');
     }
+  });
+});
+
+describe('workingFor: scientific', () => {
+  it('works a function out as its own step, before × and +', () => {
+    const w = breakdown('2 × sin(30) + 1');
+    expect(w.start).toBe('2 × sin(30) + 1');
+    expect(lines(w)).toEqual(['= 2 × 0.5 + 1', '= 1 + 1', '= 2']);
+    expect(ops(w)).toEqual(['sin(30) = 0.5', '2 × 0.5 = 1', '1 + 1 = 2']);
+    expect(w.steps[0].detail).toBeNull();
+  });
+
+  it('finishes the brackets inside a function first', () => {
+    expect(ops(breakdown('√(9 + 16) × 2'))).toEqual(['9 + 16 = 25', '√(25) = 5', '5 × 2 = 10']);
+  });
+
+  it('shows names the way they are typed', () => {
+    expect(breakdown('5! + 1').start).toBe('5! + 1');
+    expect(ops(breakdown('5! + 1'))[0]).toBe('5! = 120');
+    expect(ops(breakdown('(1 + 2)! × 2'))).toEqual(['1 + 2 = 3', '3! = 6', '6 × 2 = 12']);
+    expect(ops(breakdown('sin⁻¹(0.5) + 1'))[0]).toBe('sin⁻¹(0.5) = 30');
+    expect(ops(breakdown('∛(27) + ⁿ√(16, 4)'))).toEqual(['∛(27) = 3', 'ⁿ√(16, 4) = 2', '3 + 2 = 5']);
+    expect(ops(breakdown('nCr(5, 2) + 1'))[0]).toBe('nCr(5, 2) = 10');
+  });
+
+  it('substitutes π and e as the first step', () => {
+    const w = breakdown('2π + 1');
+    expect(w.start).toBe('2π + 1');
+    expect(ops(w)[0]).toBe('π = 3.14159265359');
+    expect(lines(w)[0]).toBe('= 2 × 3.14159265359 + 1');
+  });
+
+  it('uses the angle unit', () => {
+    const w = breakdown('sin(π ÷ 2) + 1', '0', { angle: 'rad' });
+    expect(lines(w).at(-1)).toBe('= 2');
+  });
+
+  it('gives no working when the function is the whole sum', () => {
+    expect(workingFor('sin(30)')).toBeNull();
+  });
+
+  it('agrees with the engine for 300 random scientific expressions', () => {
+    const seed = { s: 7 };
+    const r = () => (seed.s = (seed.s * 16807) % 2147483647) / 2147483647;
+    const fns = ['sin', 'cos', '√', 'log', 'ln', 'abs'];
+    let checked = 0;
+    for (let i = 0; i < 300; i++) {
+      const fn = fns[Math.floor(r() * fns.length)];
+      const expr = `${1 + Math.floor(r() * 50)} × ${fn}(${1 + Math.floor(r() * 89)}) + ${Math.floor(r() * 20)}! ÷ ${1 + Math.floor(r() * 9)}`;
+      for (const angle of ['deg', 'rad'] as const) {
+        if (!calculate(expr, '0', { angle }).ok) continue;
+        expect(workingFor(expr, '0', { angle })?.kind, `${expr} ${angle}`).toBe('breakdown');
+        checked++;
+      }
+    }
+    expect(checked).toBeGreaterThan(500);
   });
 });
