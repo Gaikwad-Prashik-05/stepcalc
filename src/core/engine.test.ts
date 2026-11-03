@@ -94,7 +94,7 @@ describe('calculate: errors never throw', () => {
   });
 
   it('has a message for every error', () => {
-    for (const code of ['empty', 'divide-by-zero', 'invalid', 'too-large', 'math-error', 'missing-value', 'solve-one-unknown', 'no-solution'] as const) {
+    for (const code of ['empty', 'divide-by-zero', 'invalid', 'too-large', 'math-error', 'missing-value', 'solve-one-unknown', 'no-solution', 'solve-too-slow'] as const) {
       expect(ERROR_MESSAGES[code]).toBeTypeOf('string');
     }
     expect(ERROR_MESSAGES['divide-by-zero']).toBe("Can't divide by 0");

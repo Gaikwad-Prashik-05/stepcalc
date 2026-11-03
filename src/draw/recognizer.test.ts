@@ -43,7 +43,7 @@ describe('PointCloudRecognizer', () => {
       }
     }
     expect(right / total).toBeGreaterThanOrEqual(0.9);
-  }, 30_000); // 170 recognitions; slow only when the whole suite shares the CPU
+  });
 
   it('does not care about stroke order or direction', () => {
     const plus = GLYPHS['+'][0];

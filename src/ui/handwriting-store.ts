@@ -1,5 +1,5 @@
-import { compact, type Stroke } from './recognizer';
-import { TEACHABLE } from './templates';
+import { compact, type Stroke } from '../draw/recognizer';
+import { TEACHABLE } from '../draw/templates';
 
 export const HANDWRITING_KEY = 'stepcalc.handwriting.v1';
 export const MAX_PER_SYMBOL = 12;

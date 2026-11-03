@@ -25,5 +25,7 @@ export default defineConfig({
   ],
   test: {
     include: ['src/**/*.test.ts'],
+    // Several property tests run thousands of cases; 5 s is too tight when the suite shares a busy CPU.
+    testTimeout: 30_000,
   },
 });

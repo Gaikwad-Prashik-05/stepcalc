@@ -228,7 +228,7 @@ export function renderApp(root: HTMLElement): void {
         const box = existing.get(letter) ?? el('input');
         Object.assign(box, { type: 'text', autocomplete: 'off', spellcheck: false, value: valueTexts[letter] ?? '' });
         box.dataset.letter = letter;
-        box.setAttribute('inputmode', 'decimal');
+        // Not inputmode=decimal: many phone number pads have no minus sign, and a box may hold 1/2 or π/2.
         box.setAttribute('aria-label', `Value of ${letter}`);
         field.append(el('span', 'value-letter', `${letter} =`), box);
         return field;

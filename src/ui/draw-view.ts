@@ -1,6 +1,6 @@
 import { readDrawing, type Reading } from '../draw/layout';
 import { PointCloudRecognizer, type Point, type Stroke } from '../draw/recognizer';
-import { addSample, loadSamples, saveSamples } from '../draw/samples';
+import { addSample, loadSamples, saveSamples } from './handwriting-store';
 import { BUILT_IN_TEMPLATES, TEACHABLE } from '../draw/templates';
 
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, className?: string, text?: string): HTMLElementTagNameMap[K] {
@@ -153,7 +153,7 @@ export function createDrawView(onRead: (expression: string) => void, onEquals: (
   undo.addEventListener('click', () => {
     const removed = String(strokes.length - 1);
     strokes.pop();
-    for (const key of [...cache.keys()]) if (key.split(',').includes(removed)) cache.delete(key);
+    for (const key of [...cache.keys()]) if (key.split('|')[0].split(',').includes(removed)) cache.delete(key);
     // Choices that involved the removed stroke no longer apply.
     for (const key of [...choices.keys()]) if (key.replace('fn:', '').split(',').includes(removed)) choices.delete(key);
     update();

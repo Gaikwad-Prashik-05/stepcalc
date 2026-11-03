@@ -2,10 +2,10 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-// core must stay pure TS so the native wrappers (Capacitor/Tauri) can reuse it unchanged.
+// core and draw must stay pure TS so the native wrappers (Capacitor/Tauri) can reuse them unchanged.
 const FORBIDDEN_GLOBALS = /\b(document|window|navigator|localStorage|sessionStorage|HTML\w*Element)\b/;
 const IMPORTS_UI = /(from\s+|import\s*\(?\s*)['"][^'"]*\/ui(\/|['"])/;
-const coreDir = import.meta.dirname;
+const pureDirs = [import.meta.dirname, join(import.meta.dirname, '..', 'draw')];
 
 function coreSourceFiles(dir: string): string[] {
   return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
@@ -18,11 +18,12 @@ function coreSourceFiles(dir: string): string[] {
 // Strip block comments and // comments that start a line or follow whitespace (keeps 'https://...').
 const stripComments = (code: string) => code.replace(/\/\*[\s\S]*?\*\/|(^|\s)\/\/.*$/gm, '$1');
 
-describe('src/core boundary', () => {
-  const files = coreSourceFiles(coreDir);
+describe('src/core and src/draw boundary', () => {
+  const files = pureDirs.flatMap(coreSourceFiles);
 
-  it('finds core source files to check', () => {
-    expect(files.length).toBeGreaterThan(0);
+  it('finds core and draw source files to check', () => {
+    expect(files.some((f) => f.includes('/core/'))).toBe(true);
+    expect(files.some((f) => f.includes('/draw/'))).toBe(true);
   });
 
   it.each(files)('%s uses no browser globals or DOM types', (file) => {

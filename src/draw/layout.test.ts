@@ -70,3 +70,13 @@ describe('readDrawing', () => {
     expect(readDrawing([], recognizer).expression).toBe('');
   });
 });
+
+describe('readDrawing: cache', () => {
+  it('re-reads a symbol whose dot/line status changes as more is drawn', () => {
+    const cache = new Map<string, string[]>();
+    const point = dot(10, 58);
+    readDrawing(point, recognizer, new Map(), cache); // alone, a dot is not small next to anything
+    const later = readDrawing([...point, ...at('5', 20, 0, 60)], recognizer, new Map(), cache);
+    expect(later.expression).toBe('.5');
+  });
+});

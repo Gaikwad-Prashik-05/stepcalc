@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { addSample, loadSamples, MAX_PER_SYMBOL, saveSamples, type Samples } from './samples';
-import { GLYPHS } from './templates';
+import { addSample, loadSamples, MAX_PER_SYMBOL, saveSamples, type Samples } from './handwriting-store';
+import { GLYPHS } from '../draw/templates';
 
 const memory = () => {
   const data = new Map<string, string>();

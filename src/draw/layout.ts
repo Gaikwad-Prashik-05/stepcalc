@@ -121,8 +121,10 @@ export function readDrawing(
     for (const group of groups) {
       const key = [...group].sort((a, b) => a - b).join(',');
       symbols.set(key, group);
-      const alternatives = cache.get(key) ?? classify(group);
-      cache.set(key, alternatives);
+      // Dot/line status depends on the other strokes' size, so it is part of the cache key.
+      const cacheKey = `${key}|${group.map((i) => (isDot(i) ? 'd' : isFlat(i) ? 'f' : 's')).join('')}`;
+      const alternatives = cache.get(cacheKey) ?? classify(group);
+      cache.set(cacheKey, alternatives);
       items.push({ kind: 'symbol', box: union(group.map((i) => boxes[i])), key, strokes: group, alternatives });
     }
     return items.sort((a, b) => a.box.minX - b.box.minX);

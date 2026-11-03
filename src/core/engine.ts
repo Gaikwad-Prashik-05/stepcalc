@@ -5,7 +5,7 @@ import { math } from './math';
 
 export type CalcError =
   | 'empty' | 'divide-by-zero' | 'invalid' | 'too-large' | 'math-error' | 'missing-value'
-  | 'solve-one-unknown' | 'no-solution';
+  | 'solve-one-unknown' | 'no-solution' | 'solve-too-slow';
 
 export type CalcResult =
   | { ok: true; exact: string; display: string }
@@ -26,9 +26,10 @@ export const ERROR_MESSAGES: Record<CalcError, string> = {
   'missing-value': 'Enter a value for every letter',
   'solve-one-unknown': 'Leave exactly one letter empty to solve for it',
   'no-solution': 'No solution found',
+  'solve-too-slow': 'Too complex to solve here',
 };
 
-const MAX_LENGTH = 1000;
+export const MAX_LENGTH = 1000;
 const ALLOWED_NODES = new Set(['ConstantNode', 'OperatorNode', 'ParenthesisNode', 'SymbolNode', 'FunctionNode']);
 const ALLOWED_OPERATORS = new Set(['add', 'subtract', 'multiply', 'divide', 'pow', 'unaryMinus', 'unaryPlus']);
 const CONSTANTS = new Set(['Ans', 'pi', 'e']);

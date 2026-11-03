@@ -4,15 +4,18 @@ A calculator that doesn't just give the answer — it shows the working, the way
 
 **Live:** https://gaikwad-prashik-05.github.io/stepcalc/
 
-> Early stage: type an expression (e.g. `550 ÷ 600`, `50 + 10%`, `Ans × 3`) and press Enter. Exact decimals, phone-style percent, history saved on your device. The keypad and Steps view are next (see [roadmap](.planning/epics/)).
+## Features
+
+- **Steps** — school working for every answer: column addition with carries, subtraction with borrows, long multiplication, long division, and mixed sums worked one operation at a time in BODMAS order
+- **Basic mode** — phone-style keypad, exact decimals, phone-style percent, `Ans`, history saved on your device
+- **Scientific mode** — sin/cos/tan and inverses, log, ln, powers, roots, x!, nCr/nPr, π, e, DEG/RAD, ENG notation and fractions (S⇔D); functions show up as steps too
+- **Letters and equations** — `2x + y` asks for x and y; `2x + 3 = 11` is solved for the letter left empty (`x = 4`, `x² = 4` → `x = -2 or 2`)
+- **Conversion mode** — length, mass, temperature, area, volume, data, time and speed with exact factors, working shown
+- **Draw mode** — handwrite an expression (powers, fractions, √, sin/log) and get the answer, fully offline; tap any symbol to fix it, and teach it your handwriting
 
 ## Planned
 
-- **Steps toggle** — column addition with carries, subtraction with borrows, long multiplication, long division
-- **Scientific mode** — engineering functions (trig, logs, powers, fractions, nCr/nPr, DEG/RAD, ENG)
-- **Conversion mode** — length, mass, temperature, data and more
-- **Draw mode** — handwrite an expression like `2x − log(xⁿ)` and get the answer, fully offline
-- **Native apps** — Android/iOS (Capacitor) and Linux/Windows/macOS (Tauri) from the same code
+- **Native apps** — Android/iOS (Capacitor) and Linux/Windows/macOS (Tauri) from the same code (see [roadmap](.planning/epics/))
 
 ## Install
 
@@ -34,7 +37,8 @@ npm run preview    # serve dist/ at http://localhost:4173/stepcalc/ (service wor
 
 ```
 src/core/   pure TypeScript logic — no browser APIs (enforced by a test), shared with future native apps
-src/ui/     DOM rendering
+src/draw/   handwriting recogniser ($P point clouds) and layout reading — also pure TypeScript
+src/ui/     DOM rendering and on-device storage
 src/main.ts entry + service worker registration
 ```
 

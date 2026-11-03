@@ -1,5 +1,5 @@
 import type { BigNumber, MathNode } from 'mathjs';
-import { evaluationScope, lettersIn, parseExpression, type CalcError, type CalcOptions } from './engine';
+import { evaluationScope, lettersIn, MAX_LENGTH, parseExpression, type CalcError, type CalcOptions } from './engine';
 import { math } from './math';
 
 export type SolveResult =
@@ -7,6 +7,8 @@ export type SolveResult =
   | { ok: false; error: CalcError };
 
 const MAX_ROOTS = 4;
+// The page is frozen while this runs, so it stops after a few seconds (a long chain of sin(x) can take a minute).
+const DEFAULT_BUDGET_MS = 3000;
 const BISECTIONS = 220;
 // A real root lands near 1e-60 at 64-digit precision; a pole (1/x = 0) or a jump stays large.
 const ROOT_TOLERANCE = math.bignumber('1e-20');
@@ -32,7 +34,10 @@ const SEARCH_POINTS = searchPoints();
  * Solves an equation like `2x + 3 = 11` numerically for its one letter without a value.
  * Finds sign changes on a fixed grid, bisects each to 64 digits and drops poles.
  */
-export function solve(equation: string, ans: string, options: CalcOptions = {}): SolveResult {
+export function solve(equation: string, ans: string, options: CalcOptions = {}, budgetMs = DEFAULT_BUDGET_MS): SolveResult {
+  const deadline = performance.now() + budgetMs;
+  const late = () => performance.now() > deadline;
+  if (equation.length > MAX_LENGTH) return { ok: false, error: 'invalid' };
   const sides = equation.split('=');
   if (sides.length !== 2 || !sides[0].trim() || !sides[1].trim()) return { ok: false, error: 'invalid' };
 
@@ -73,7 +78,8 @@ export function solve(equation: string, ans: string, options: CalcOptions = {}):
   // Brackets first, then refine only the ones nearest 0: sin(x) = 0 has dozens on the grid.
   const brackets: { lo: BigNumber; hi: BigNumber; fLo: BigNumber | null }[] = [];
   let previous: { x: BigNumber; y: BigNumber } | null = null;
-  for (const x of SEARCH_POINTS) {
+  for (const [n, x] of SEARCH_POINTS.entries()) {
+    if (n % 16 === 0 && late()) return { ok: false, error: 'solve-too-slow' };
     const y = f(x);
     if (!y) {
       previous = null;
@@ -88,12 +94,12 @@ export function solve(equation: string, ans: string, options: CalcOptions = {}):
 
   let next = 0;
   // Some brackets are poles (tan 90°) and get rejected, so keep going until enough real roots.
-  while (next < brackets.length && found.length <= MAX_ROOTS) {
+  while (next < brackets.length && found.length <= MAX_ROOTS && !late()) {
     const { lo, hi, fLo } = brackets[next++];
-    addRoot(fLo ? bisect(f, lo, hi, fLo) : lo);
+    addRoot(fLo ? bisect(f, lo, hi, fLo, late) : lo);
   }
 
-  if (!found.length) return { ok: false, error: 'no-solution' };
+  if (!found.length) return { ok: false, error: next < brackets.length ? 'solve-too-slow' : 'no-solution' };
   const more = found.length > MAX_ROOTS || next < brackets.length;
   // Nearest 0 first (positive before negative, like a calculator's principal value);
   // a complete list reads left to right instead (x = −2 or 2).
@@ -103,9 +109,9 @@ export function solve(equation: string, ans: string, options: CalcOptions = {}):
   return { ok: true, unknown, roots: shown.map((r) => r.toString()), more };
 }
 
-function bisect(f: (x: BigNumber) => BigNumber | null, lo: BigNumber, hi: BigNumber, fLo: BigNumber): BigNumber {
+function bisect(f: (x: BigNumber) => BigNumber | null, lo: BigNumber, hi: BigNumber, fLo: BigNumber, late: () => boolean): BigNumber {
   let [a, b, fa] = [lo, hi, fLo];
-  for (let i = 0; i < BISECTIONS; i++) {
+  for (let i = 0; i < BISECTIONS && !late(); i++) {
     const mid = a.plus(b).div(2);
     const fm = f(mid);
     if (!fm) return mid; // undefined inside the bracket: let the root check reject it

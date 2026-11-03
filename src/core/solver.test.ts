@@ -68,3 +68,16 @@ describe('solve', () => {
     expect(performance.now() - t).toBeLessThan(1500);
   });
 });
+
+describe('solve: limits', () => {
+  it('rejects equations longer than the calculator accepts', () => {
+    expect(solve('x' + '+1'.repeat(600) + '=3', '0').ok).toBe(false);
+  });
+
+  it('gives up cleanly when it runs out of time', () => {
+    const t = performance.now();
+    const r = solve('x' + '+sin(x)'.repeat(60) + '=1', '0', {}, 50);
+    expect(performance.now() - t).toBeLessThan(2000);
+    expect(r).toEqual({ ok: false, error: 'solve-too-slow' });
+  });
+});
