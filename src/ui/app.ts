@@ -9,6 +9,7 @@ import { CATEGORIES, conversionWorking, convert, UNITS, type Category } from '..
 import { resolveValues } from '../core/variables';
 import { loadHistory, saveHistory } from './history-store';
 import { ANGLE_KEY, loadJson, loadPref, MODE_KEY, saveJson, savePref, UNITS_KEY } from './prefs';
+import { createDrawView } from './draw-view';
 import { createStepsView } from './steps-view';
 
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, className?: string, text?: string): HTMLElementTagNameMap[K] {
@@ -51,7 +52,7 @@ const KEY_LABELS: Partial<Record<Key | '=' | Toggle, string>> = {
 };
 const KEY_TEXT: Partial<Record<Key | '=' | Toggle, string>> = { eq: '=' };
 const MODES = ['Basic', 'Scientific', 'Conversion', 'Draw'] as const;
-const READY_MODES = ['Basic', 'Scientific', 'Conversion'] as const;
+const READY_MODES = ['Basic', 'Scientific', 'Conversion', 'Draw'] as const;
 type Mode = (typeof READY_MODES)[number];
 const TRIG = /sin|cos|tan/;
 
@@ -162,7 +163,16 @@ export function renderApp(root: HTMLElement): void {
   const unitRow = el('div', 'convert-units');
   unitRow.append(fromSelect, swapButton, toSelect);
   convertPanel.append(categorySelect, unitRow);
-  form.append(label, input, valueBoxes, result, convertPanel, keys);
+  // Draw: the reading goes on the display, so value boxes, the solver and Steps all work as usual.
+  const draw = createDrawView(
+    (expression) => {
+      input.value = expression;
+      justEvaluated = false;
+      renderValueBoxes();
+    },
+    () => form.requestSubmit(),
+  );
+  form.append(label, input, valueBoxes, result, convertPanel, draw.element, keys);
 
   function renderUnits(): void {
     const [from, to] = units.pairs[units.category];
@@ -254,6 +264,9 @@ export function renderApp(root: HTMLElement): void {
     functionKeys.hidden = !scientific;
     scientificPad.hidden = !scientific;
     convertPanel.hidden = mode !== 'Conversion';
+    draw.element.hidden = mode !== 'Draw';
+    keys.hidden = mode === 'Draw';
+    root.classList.toggle('is-draw', mode === 'Draw');
     root.classList.toggle('is-scientific', scientific);
     root.classList.toggle('is-conversion', mode === 'Conversion');
     const deg = toggle('DEG');
@@ -405,6 +418,7 @@ export function renderApp(root: HTMLElement): void {
     }
     ans = exact;
     justEvaluated = true;
+    if (mode === 'Draw') draw.learnFromCorrections(); // the user accepted the reading, fixes included
     // Trig worked in radians is tagged, so a later look at history is not misread as degrees.
     const given = Object.keys(values.vars).map((letter) => `${letter} = ${valueTexts[letter].trim()}`);
     let saved = given.length && !expression.includes('=') ? `${expression} (${given.join(', ')})` : expression;

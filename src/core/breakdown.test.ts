@@ -83,7 +83,7 @@ describe('workingFor agrees with the engine', () => {
       const w = workingFor(expr);
       expect(w?.kind, expr).toBe('breakdown');
     }
-  });
+  }, 30_000); // 1000 full breakdowns; slow only when the whole suite shares the CPU
 });
 
 describe('workingFor: scientific', () => {

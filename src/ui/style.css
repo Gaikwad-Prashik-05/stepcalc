@@ -190,7 +190,7 @@ h1 { margin: 0; font-size: 2rem; font-weight: 700; }
 
 /* Scientific mode */
 .keys { display: grid; gap: var(--space-2); }
-.keys > [hidden] { display: none; }
+.keys > [hidden], .keys[hidden] { display: none; }
 .function-keys { display: grid; grid-template-columns: repeat(12, 1fr); gap: 6px; }
 .function-keys .key { grid-column: span 2; min-height: 44px; font-size: 1rem; padding: 0; }
 .function-keys .key[aria-pressed='true'] { background: var(--accent); color: var(--accent-text); }
@@ -260,4 +260,60 @@ h1 { margin: 0; font-size: 2rem; font-weight: 700; }
   .is-conversion .tagline { display: none; }
   .is-conversion .calc { gap: var(--space-1); }
   .is-conversion .keypad .key { min-height: 52px; }
+}
+
+/* Draw mode */
+.draw { display: grid; gap: var(--space-2); }
+.draw[hidden], .teach[hidden], .read-as[hidden], .draw-tools[hidden] { display: none; }
+/* Canvas first and the Read-as row a fixed height: nothing may move the canvas while someone is drawing. */
+.is-draw .calc > .draw { order: -1; }
+.read-as { display: flex; align-items: center; gap: var(--space-1); height: 52px; overflow-x: auto; white-space: nowrap; font-size: 1.25rem; }
+.read-as > * { flex: none; }
+.read-as-label { color: var(--muted); font-size: 0.875rem; margin-right: var(--space-1); }
+.read-as-empty { color: var(--muted); font-size: 1rem; }
+.read-token {
+  min-width: 36px;
+  min-height: 44px;
+  padding: 0 var(--space-2);
+  border: 1px dashed var(--muted);
+  border-radius: var(--space-2);
+  background: none;
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+}
+.read-token:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.draw-canvas {
+  width: 100%;
+  height: 260px;
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+  touch-action: none;
+  cursor: crosshair;
+}
+.draw-tools { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--space-2); }
+.draw-button {
+  min-height: 52px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--surface-strong);
+  color: var(--accent);
+  font: inherit;
+  font-size: 1.1rem;
+  cursor: pointer;
+}
+.draw-button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.draw-equals { background: var(--accent); color: var(--accent-text); font-weight: 700; font-size: 1.4rem; }
+.teach { display: grid; gap: var(--space-2); }
+.teach-hint { margin: 0; color: var(--muted); }
+.teach-row { display: flex; align-items: center; gap: var(--space-2); }
+.teach-row .convert-select { flex: 1; }
+.teach-count { flex: 1; color: var(--muted); }
+.teach-row .draw-button { padding: 0 var(--space-3); }
+@media (max-height: 760px) {
+  #app.is-draw { padding-top: var(--space-2); gap: var(--space-3); }
+  .is-draw h1 { font-size: 1.5rem; }
+  .is-draw .tagline { display: none; }
+  .is-draw .draw-canvas { height: 230px; }
 }
