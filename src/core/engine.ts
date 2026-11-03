@@ -20,7 +20,7 @@ const MAX_LENGTH = 1000;
 // functions, strings, matrices, other symbols) is rejected before evaluation.
 const ALLOWED_NODES = new Set(['ConstantNode', 'OperatorNode', 'ParenthesisNode', 'SymbolNode']);
 
-function normalise(expression: string): string {
+export function normalise(expression: string): string {
   return expression
     .replace(/×/g, '*')
     .replace(/÷/g, '/')

@@ -15,9 +15,9 @@ A calculator the user drives daily on phone (Android) and laptop (CachyOS), whos
 ## Success Criteria
 
 - [ ] App installs as a PWA on Android and Linux and works with no internet after first load
-- [ ] Basic arithmetic is exact (0.1 + 0.2 = 0.3) and usable fully from the keyboard
+- [x] Basic arithmetic is exact (0.1 + 0.2 = 0.3) and usable fully from the keyboard
 - [ ] With Steps ON, 60 ÷ 4, 480 ÷ 4 and 37270 − 11359 show correct school-method working matching the user's paper sample
-- [ ] Every push to main deploys to GitHub Pages with tests passing
+- [x] Every push to main deploys to GitHub Pages with tests passing
 
 ---
 
@@ -36,7 +36,7 @@ All math, steps and recognition logic lives in `src/core/` (pure TypeScript, no 
 | 3 | basic-mode-ui | done | [spec](../specs/basic-mode-ui.md) | — | #2 |
 | 4 | steps-add-sub | done | [spec](../specs/steps-add-sub.md) | — | #2 |
 | 5 | steps-mul-div | done | [spec](../specs/steps-mul-div.md) | — | #4 |
-| 6 | steps-bodmas-toggle | todo | — | — | #3, #5 |
+| 6 | steps-bodmas-toggle | done | [spec](../specs/steps-bodmas-toggle.md) | — | #3, #5 |
 
 ---
 

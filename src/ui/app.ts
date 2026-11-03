@@ -1,7 +1,7 @@
 import { calculate, ERROR_MESSAGES } from '../core/engine';
 import { addEntry, clearHistory, groupByDay, type HistoryEntry } from '../core/history';
 import { applyKey, type Key } from '../core/keypad';
-import { stepsFor } from '../core/steps-grid';
+import { workingFor } from '../core/breakdown';
 import { loadHistory, saveHistory } from './history-store';
 import { createStepsView } from './steps-view';
 
@@ -27,6 +27,7 @@ export function renderApp(root: HTMLElement): void {
   let justEvaluated = false;
   let history: HistoryEntry[] = loadHistory();
 
+  const steps = createStepsView();
   const header = el('header', 'app-header');
   const title = el('div');
   title.append(el('h1', undefined, 'StepCalc'), el('p', 'tagline', 'Show my work'));
@@ -37,7 +38,9 @@ export function renderApp(root: HTMLElement): void {
     option.disabled = name !== 'Basic';
     mode.append(option);
   }
-  header.append(title, mode);
+  const controls = el('div', 'header-controls');
+  controls.append(steps.switchElement, mode);
+  header.append(title, controls);
 
   const form = el('form', 'calc');
   const label = el('label', 'calc-label visually-hidden', 'Expression');
@@ -63,7 +66,6 @@ export function renderApp(root: HTMLElement): void {
     keypad.append(button);
   }
   form.append(label, input, result, keypad);
-  const steps = createStepsView();
 
   keypad.addEventListener('click', (event) => {
     const key = (event.target as HTMLElement).closest<HTMLButtonElement>('.key')?.dataset.key as Key | '=' | undefined;
@@ -122,8 +124,9 @@ export function renderApp(root: HTMLElement): void {
     event.preventDefault();
     const expression = input.value.trim();
     const outcome = calculate(expression, ans);
+    const working = outcome.ok ? workingFor(expression, ans) : null; // before ans changes
     result.classList.toggle('is-error', !outcome.ok);
-    steps.show(outcome.ok ? stepsFor(expression) : null);
+    steps.show(working);
     if (!outcome.ok) {
       result.textContent = ERROR_MESSAGES[outcome.error];
       return; // Ans stays the last successful result
