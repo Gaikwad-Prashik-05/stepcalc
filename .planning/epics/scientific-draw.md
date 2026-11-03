@@ -1,7 +1,7 @@
 # Epic: scientific-draw
 
 **Created**: 2026-11-02
-**Status**: in progress
+**Status**: done (live 2026-11-03), pending user device checks
 **Owner**: Prashik Gaikwad
 
 ---
@@ -25,11 +25,11 @@ Turn the calculator into an engineering tool (fx-style scientific functions, uni
 
 | # | Feature | Status | Spec | Plan | Depends On |
 |---|---------|--------|------|------|------------|
-| 7 | scientific-mode | built, committed locally (6465a5a) | specs/scientific-mode.md | — | pwa-core |
-| 8 | variables-solver | built, committed locally (89d66cb) | specs/variables-solver.md | — | #7 |
-| 9 | conversion-mode | built, committed locally (89d66cb) | specs/conversion-mode.md | — | pwa-core |
-| 10 | draw-recognizer | built, committed locally (9ac0a7d) | specs/draw-recognizer.md | — | #7 |
-| 11 | draw-layout | built, committed locally (9ac0a7d) | specs/draw-layout.md | — | #8, #10 |
+| 7 | scientific-mode | live (6bd8106) | specs/scientific-mode.md | — | pwa-core |
+| 8 | variables-solver | live (6bd8106) | specs/variables-solver.md | — | #7 |
+| 9 | conversion-mode | live (6bd8106) | specs/conversion-mode.md | — | pwa-core |
+| 10 | draw-recognizer | live (6bd8106) | specs/draw-recognizer.md | — | #7 |
+| 11 | draw-layout | live (6bd8106) | specs/draw-layout.md | — | #8, #10 |
 
 ---
 
