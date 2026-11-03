@@ -3,7 +3,9 @@ import { formatNumber } from './format';
 import { DivideByZero, E, FUNCTION_NAMES, functionScope, MathError, PI, type AngleUnit } from './functions';
 import { math } from './math';
 
-export type CalcError = 'empty' | 'divide-by-zero' | 'invalid' | 'too-large' | 'math-error' | 'missing-value';
+export type CalcError =
+  | 'empty' | 'divide-by-zero' | 'invalid' | 'too-large' | 'math-error' | 'missing-value'
+  | 'solve-one-unknown' | 'no-solution';
 
 export type CalcResult =
   | { ok: true; exact: string; display: string }
@@ -22,6 +24,8 @@ export const ERROR_MESSAGES: Record<CalcError, string> = {
   'too-large': 'Number too large',
   'math-error': 'Math error',
   'missing-value': 'Enter a value for every letter',
+  'solve-one-unknown': 'Leave exactly one letter empty to solve for it',
+  'no-solution': 'No solution found',
 };
 
 const MAX_LENGTH = 1000;
@@ -52,7 +56,22 @@ export function normalise(expression: string): string {
     .replace(/²/g, '^2')
     .replace(/³/g, '^3')
     // phone-style: a number right after % multiplies ("7%3" = 7% × 3), never remainder
-    .replace(/%\s*(?=[\d.(A-Za-z])/g, '%*');
+    .replace(/%\s*(?=[\d.(A-Za-z])/g, '%*')
+    .replace(/[A-Za-z]+/g, splitLetters);
+}
+
+/** Function and constant names that letter-splitting must leave alone. */
+const KNOWN_NAMES = new Set([...FUNCTION_NAMES, 'pi', 'e']);
+
+/**
+ * Letters written together multiply, like in maths: at → a*t, 2xy → 2x*y, x(2) → x*(2).
+ * A longer unknown word right before a bracket is left as a (rejected) function name: sinh(1).
+ */
+function splitLetters(word: string, offset: number, text: string): string {
+  if (KNOWN_NAMES.has(word) || !/^[a-z]+$/.test(word)) return word;
+  const beforeBracket = /^\s*\(/.test(text.slice(offset + word.length));
+  if (beforeBracket && word.length > 2) return word;
+  return word.split('').join('*') + (beforeBracket ? '*' : '');
 }
 
 type Parent = MathNode | null;

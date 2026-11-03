@@ -28,3 +28,19 @@ export function savePref(key: string, value: string, storage = defaultStorage())
     // Not remembered, but the app keeps working.
   }
 }
+
+export const UNITS_KEY = 'stepcalc.units.v1';
+
+/** A saved JSON value that passes `isValid`, else the fallback. */
+export function loadJson<T>(key: string, isValid: (value: unknown) => value is T, fallback: T, storage = defaultStorage()): T {
+  try {
+    const value: unknown = JSON.parse(storage?.getItem(key) ?? 'null');
+    return isValid(value) ? value : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+export function saveJson(key: string, value: unknown, storage = defaultStorage()): void {
+  savePref(key, JSON.stringify(value), storage);
+}

@@ -88,3 +88,14 @@ describe('applyKey: scientific keys', () => {
     expect(applyKey(at('2+1', 3, true), '±')).toEqual(at('(−Ans)'));
   });
 });
+
+describe('applyKey: equations', () => {
+  it('x and the equation sign insert as typed', () => {
+    expect(applyKey(at('2'), 'x')).toEqual(at('2x'));
+    expect(applyKey(at('2x+3'), 'eq')).toEqual(at('2x+3='));
+  });
+
+  it('after =, x starts a new expression', () => {
+    expect(applyKey(at('2+1', 3, true), 'x')).toEqual(at('x'));
+  });
+});

@@ -25,9 +25,9 @@ Turn the calculator into an engineering tool (fx-style scientific functions, uni
 
 | # | Feature | Status | Spec | Plan | Depends On |
 |---|---------|--------|------|------|------------|
-| 7 | scientific-mode | built, not committed | specs/scientific-mode.md | — | pwa-core |
-| 8 | variables-solver | todo | — | — | #7 |
-| 9 | conversion-mode | todo | — | — | pwa-core |
+| 7 | scientific-mode | built, committed locally (6465a5a) | specs/scientific-mode.md | — | pwa-core |
+| 8 | variables-solver | built, committed locally (2ef7af0) | specs/variables-solver.md | — | #7 |
+| 9 | conversion-mode | built, committed locally (2ef7af0) | specs/conversion-mode.md | — | pwa-core |
 | 10 | draw-recognizer | todo | — | — | #7 |
 | 11 | draw-layout | todo | — | — | #8, #10 |
 

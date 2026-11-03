@@ -69,9 +69,18 @@ describe('variables', () => {
     expect(lettersIn('1 +')).toEqual([]);
   });
 
-  it('still rejects unknown words', () => {
-    expect(run('foo + 1')).toBe('invalid');
+  it('still rejects unknown function names', () => {
+    expect(run('foo(1)')).toBe('invalid');
     expect(run('sinh(1)')).toBe('invalid');
+  });
+
+  it('multiplies letters written together', () => {
+    expect(lettersIn('2xy + at')).toEqual(['a', 't', 'x', 'y']);
+    expect(run('2xy', { vars: { x: '3', y: '4' } })).toBe('24');
+    expect(run('x(2 + 1)', { vars: { x: '2' } })).toBe('6');
+    expect(run('ab(1 + 1)', { vars: { a: '2', b: '5' } })).toBe('20');
+    expect(run('ex', { vars: { x: '1' } })).toBe('2.71828182846');
+    expect(run('sin(x)cos(x)', { vars: { x: '45' } })).toBe('0.5');
   });
 });
 

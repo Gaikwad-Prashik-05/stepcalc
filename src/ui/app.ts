@@ -1,11 +1,14 @@
-import { calculate, ERROR_MESSAGES } from '../core/engine';
-import { formatEng, toFraction } from '../core/format';
+import { calculate, ERROR_MESSAGES, lettersIn, type CalcError } from '../core/engine';
+import { formatEng, formatNumber, toFraction } from '../core/format';
 import type { AngleUnit } from '../core/functions';
 import { addEntry, clearHistory, groupByDay, type HistoryEntry } from '../core/history';
 import { applyKey, type Key } from '../core/keypad';
 import { workingFor } from '../core/breakdown';
+import { solve } from '../core/solver';
+import { CATEGORIES, conversionWorking, convert, UNITS, type Category } from '../core/units';
+import { resolveValues } from '../core/variables';
 import { loadHistory, saveHistory } from './history-store';
-import { ANGLE_KEY, loadPref, MODE_KEY, savePref } from './prefs';
+import { ANGLE_KEY, loadJson, loadPref, MODE_KEY, saveJson, savePref, UNITS_KEY } from './prefs';
 import { createStepsView } from './steps-view';
 
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, className?: string, text?: string): HTMLElementTagNameMap[K] {
@@ -35,7 +38,7 @@ const FUNCTION_KEYS: (Key | Toggle)[] = [
   'sin', 'cos', 'tan', 'log', 'ln', '√',
   'sin⁻¹', 'cos⁻¹', 'tan⁻¹', '10ˣ', 'eˣ', '∛',
   'x²', 'xʸ', 'ⁿ√', 'x!', 'nCr', 'nPr',
-  '(', ')', ',', 'abs',
+  '(', ')', ',', 'abs', 'x', 'eq',
 ];
 const TOGGLES = new Set<string>(['DEG', 'ENG', 'S⇔D']);
 const KEY_LABELS: Partial<Record<Key | '=' | Toggle, string>> = {
@@ -44,16 +47,44 @@ const KEY_LABELS: Partial<Record<Key | '=' | Toggle, string>> = {
   'sin⁻¹': 'Inverse sine', 'cos⁻¹': 'Inverse cosine', 'tan⁻¹': 'Inverse tangent', log: 'Log base 10', ln: 'Natural log',
   '√': 'Square root', '∛': 'Cube root', 'ⁿ√': 'Nth root', '10ˣ': 'Ten to the power', 'eˣ': 'e to the power',
   'x²': 'Square', 'xʸ': 'Power', 'x!': 'Factorial', ',': 'Comma', abs: 'Absolute value',
+  x: 'Letter x', eq: 'Equals sign, to write an equation',
 };
+const KEY_TEXT: Partial<Record<Key | '=' | Toggle, string>> = { eq: '=' };
 const MODES = ['Basic', 'Scientific', 'Conversion', 'Draw'] as const;
-const READY_MODES = ['Basic', 'Scientific'] as const;
+const READY_MODES = ['Basic', 'Scientific', 'Conversion'] as const;
 type Mode = (typeof READY_MODES)[number];
 const TRIG = /sin|cos|tan/;
+
+/** Letters that need a value box: all of them, except in an equation with one letter, which is just solved. */
+function lettersToFill(expression: string): string[] {
+  const letters = lettersIn(expression);
+  return expression.includes('=') && letters.length === 1 ? [] : letters;
+}
+
+interface UnitChoice {
+  category: Category;
+  pairs: Record<Category, [string, string]>;
+}
+const DEFAULT_UNITS: UnitChoice = {
+  category: 'Length',
+  pairs: {
+    Length: ['km', 'mi'], Mass: ['kg', 'lb'], Temperature: ['°C', '°F'], Area: ['m²', 'ft²'],
+    Volume: ['L', 'gal'], Data: ['GB', 'MB'], Time: ['h', 'min'], Speed: ['km/h', 'mph'],
+  },
+};
+function isUnitChoice(value: unknown): value is UnitChoice {
+  const v = value as UnitChoice | null;
+  if (typeof v !== 'object' || v === null || !CATEGORIES.includes(v.category) || typeof v.pairs !== 'object' || v.pairs === null) return false;
+  return CATEGORIES.every((c) => {
+    const pair = v.pairs[c];
+    return Array.isArray(pair) && pair.length === 2 && pair.every((id) => UNITS[c].some((unit) => unit.id === id));
+  });
+}
 
 function buildKeys(keys: readonly (Key | '=' | Toggle)[], className: string): HTMLDivElement {
   const keypad = el('div', className);
   for (const key of keys) {
-    const button = el('button', 'key', key);
+    const button = el('button', 'key', KEY_TEXT[key] ?? key);
     button.type = key === '=' ? 'submit' : 'button';
     if (TOGGLES.has(key)) button.dataset.toggle = key;
     else button.dataset.key = key;
@@ -75,6 +106,11 @@ export function renderApp(root: HTMLElement): void {
   // ENG and S⇔D change how the current answer is shown, like on a Casio; the next "=" resets them.
   let shown: { exact: string; display: string } | null = null;
   let view: 'normal' | 'ENG' | 'S⇔D' = 'normal';
+  // What is typed in each letter's value box; kept while the letter comes and goes.
+  const valueTexts: Record<string, string> = {};
+  const units: UnitChoice = loadJson(UNITS_KEY, isUnitChoice, structuredClone(DEFAULT_UNITS));
+  // The last value converted, so changing a unit updates the answer straight away.
+  let converted: { expression: string; exact: string } | null = null;
 
   const steps = createStepsView();
   const header = el('header', 'app-header');
@@ -110,7 +146,97 @@ export function renderApp(root: HTMLElement): void {
   const functionKeys = buildKeys(FUNCTION_KEYS, 'function-keys');
   const scientificPad = buildKeys(SCIENTIFIC_PAD, 'keypad keypad-scientific');
   keys.append(basicPad, functionKeys, scientificPad);
-  form.append(label, input, result, keys);
+  const valueBoxes = el('div', 'value-boxes');
+  valueBoxes.hidden = true;
+  const convertPanel = el('div', 'convert');
+  const categorySelect = el('select', 'convert-select convert-category');
+  categorySelect.setAttribute('aria-label', 'Unit type');
+  for (const category of CATEGORIES) categorySelect.append(Object.assign(el('option', undefined, category), { value: category }));
+  const fromSelect = el('select', 'convert-select');
+  fromSelect.setAttribute('aria-label', 'From unit');
+  const toSelect = el('select', 'convert-select');
+  toSelect.setAttribute('aria-label', 'To unit');
+  const swapButton = el('button', 'convert-swap', '⇄');
+  swapButton.type = 'button';
+  swapButton.setAttribute('aria-label', 'Swap units');
+  const unitRow = el('div', 'convert-units');
+  unitRow.append(fromSelect, swapButton, toSelect);
+  convertPanel.append(categorySelect, unitRow);
+  form.append(label, input, valueBoxes, result, convertPanel, keys);
+
+  function renderUnits(): void {
+    const [from, to] = units.pairs[units.category];
+    categorySelect.value = units.category;
+    for (const [select, chosen] of [[fromSelect, from], [toSelect, to]] as const) {
+      select.replaceChildren(...UNITS[units.category].map((unit) => Object.assign(el('option', undefined, `${unit.id} · ${unit.name}`), { value: unit.id })));
+      select.value = chosen;
+    }
+  }
+
+  /** Shows a value converted with the current units; steps follow the Steps switch. */
+  function showConversion(): void {
+    if (!converted) return;
+    const [from, to] = units.pairs[units.category];
+    const exact = convert(converted.exact, units.category, from, to);
+    result.classList.remove('is-error');
+    result.textContent = `= ${formatNumber(exact)} ${to}`;
+    steps.show(conversionWorking(converted.exact, units.category, from, to));
+    ans = exact;
+  }
+
+  function changeUnits(): void {
+    saveJson(UNITS_KEY, units);
+    renderUnits();
+    showConversion();
+  }
+  categorySelect.addEventListener('change', () => {
+    units.category = categorySelect.value as Category;
+    changeUnits();
+  });
+  fromSelect.addEventListener('change', () => {
+    units.pairs[units.category][0] = fromSelect.value;
+    changeUnits();
+  });
+  toSelect.addEventListener('change', () => {
+    units.pairs[units.category][1] = toSelect.value;
+    changeUnits();
+  });
+  swapButton.addEventListener('click', () => {
+    units.pairs[units.category].reverse();
+    changeUnits();
+  });
+
+  /** One box per letter in the expression; existing boxes are kept so typing in them is not interrupted. */
+  function renderValueBoxes(): void {
+    const letters = lettersToFill(input.value);
+    valueBoxes.hidden = letters.length === 0;
+    const existing = new Map([...valueBoxes.querySelectorAll<HTMLInputElement>('input')].map((box) => [box.dataset.letter!, box]));
+    if (letters.join() === [...existing.keys()].join()) return;
+    valueBoxes.replaceChildren(
+      ...letters.map((letter) => {
+        const field = el('label', 'value-box');
+        const box = existing.get(letter) ?? el('input');
+        Object.assign(box, { type: 'text', autocomplete: 'off', spellcheck: false, value: valueTexts[letter] ?? '' });
+        box.dataset.letter = letter;
+        box.setAttribute('inputmode', 'decimal');
+        box.setAttribute('aria-label', `Value of ${letter}`);
+        field.append(el('span', 'value-letter', `${letter} =`), box);
+        return field;
+      }),
+    );
+  }
+  valueBoxes.addEventListener('input', (event) => {
+    const box = event.target as HTMLInputElement;
+    valueTexts[box.dataset.letter!] = box.value;
+    box.removeAttribute('aria-invalid');
+  });
+  valueBoxes.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      form.requestSubmit();
+    }
+  });
+  const box = (letter: string) => valueBoxes.querySelector<HTMLInputElement>(`input[data-letter="${letter}"]`);
   const toggle = (name: Toggle) => functionKeys.querySelector<HTMLButtonElement>(`[data-toggle="${name}"]`)!;
 
   function renderResult(): void {
@@ -127,7 +253,9 @@ export function renderApp(root: HTMLElement): void {
     basicPad.hidden = scientific;
     functionKeys.hidden = !scientific;
     scientificPad.hidden = !scientific;
+    convertPanel.hidden = mode !== 'Conversion';
     root.classList.toggle('is-scientific', scientific);
+    root.classList.toggle('is-conversion', mode === 'Conversion');
     const deg = toggle('DEG');
     deg.textContent = angle === 'deg' ? 'DEG' : 'RAD';
     deg.setAttribute('aria-label', `Angle unit: ${angle === 'deg' ? 'degrees' : 'radians'}. Tap to change`);
@@ -138,7 +266,11 @@ export function renderApp(root: HTMLElement): void {
     result.classList.remove('is-error');
     steps.show(null);
     shown = null;
+    converted = null;
     view = 'normal';
+    for (const letter of Object.keys(valueTexts)) delete valueTexts[letter];
+    valueBoxes.replaceChildren(); // rebuilt empty, so no box shows a forgotten value
+    renderValueBoxes();
     renderResult();
   }
 
@@ -164,21 +296,28 @@ export function renderApp(root: HTMLElement): void {
     input.setSelectionRange(next.start, next.end);
     justEvaluated = false;
     if (key === 'AC') clearResult();
+    renderValueBoxes();
   });
   // Keypad buttons must not steal focus, or the caret position is lost on touch.
   keys.addEventListener('pointerdown', (event) => event.preventDefault());
   modeSelect.addEventListener('change', () => {
     mode = (READY_MODES as readonly string[]).includes(modeSelect.value) ? (modeSelect.value as Mode) : 'Basic';
     savePref(MODE_KEY, mode);
+    clearResult();
     renderMode();
   });
-  input.addEventListener('input', () => { justEvaluated = false; });
+  input.addEventListener('input', () => {
+    justEvaluated = false;
+    renderValueBoxes();
+  });
   input.addEventListener('keydown', (event) => {
     if (event.key === 'Escape') {
       input.value = '';
       clearResult();
       justEvaluated = false;
-    } else if (event.key === '=') {
+      renderValueBoxes();
+    } else if (event.key === '=' && !input.value.includes('=') && lettersIn(input.value).length === 0) {
+      // Phone habit: "=" works the answer out. With letters it writes an equation instead.
       event.preventDefault();
       form.requestSubmit();
     }
@@ -204,7 +343,8 @@ export function renderApp(root: HTMLElement): void {
         const list = el('ul');
         for (const entry of group.entries) {
           const item = el('li');
-          item.append(el('span', 'history-expression', entry.expression), el('span', 'history-result', `= ${entry.result}`));
+          // Solved equations already read "x = 4".
+          item.append(el('span', 'history-expression', entry.expression), el('span', 'history-result', entry.result.includes('=') ? entry.result : `= ${entry.result}`));
           list.append(item);
         }
         block.append(el('h3', undefined, group.label), list);
@@ -216,24 +356,60 @@ export function renderApp(root: HTMLElement): void {
   form.addEventListener('submit', (event) => {
     event.preventDefault();
     const expression = input.value.trim();
-    const outcome = calculate(expression, ans, { angle });
-    const working = outcome.ok ? workingFor(expression, ans, { angle }) : null; // before ans changes
-    result.classList.toggle('is-error', !outcome.ok);
-    steps.show(working);
+    const values = resolveValues(lettersToFill(expression), valueTexts, ans, { angle });
+    const options = { angle, vars: values.vars };
     view = 'normal';
-    if (!outcome.ok) {
-      shown = null;
+    shown = null;
+    converted = null;
+    const fail = (error: CalcError, focus?: string) => {
+      result.classList.add('is-error');
+      steps.show(null);
       renderResult();
-      result.textContent = ERROR_MESSAGES[outcome.error];
-      return; // Ans stays the last successful result
+      result.textContent = ERROR_MESSAGES[error];
+      if (focus) box(focus)?.focus();
+    };
+    for (const letter of values.bad) box(letter)?.setAttribute('aria-invalid', 'true');
+    if (values.bad.length) return fail('invalid', values.bad[0]);
+
+    let resultText: string;
+    let exact: string;
+    if (expression.includes('=')) {
+      const solved = solve(expression, ans, options);
+      if (!solved.ok) return fail(solved.error, solved.error === 'solve-one-unknown' && values.empty.length > 1 ? values.empty[0] : undefined);
+      resultText = `${solved.unknown} = ${solved.roots.map(formatNumber).join(' or ')}${solved.more ? ' or …' : ''}`;
+      exact = solved.roots[0];
+      steps.show(null); // no algebra steps for equations yet
+      result.classList.remove('is-error');
+      result.textContent = resultText;
+    } else if (mode === 'Conversion') {
+      const outcome = calculate(expression, ans, options);
+      if (!outcome.ok) return fail(outcome.error, outcome.error === 'missing-value' ? values.empty[0] : undefined);
+      converted = { expression, exact: outcome.exact };
+      showConversion(); // sets ans
+      const [from, to] = units.pairs[units.category];
+      justEvaluated = true;
+      history = addEntry(history, { expression: `${expression} ${from} → ${to}`, result: `${result.textContent!.slice(2)}`, exact: ans, at: new Date().toISOString() });
+      saveHistory(history);
+      renderHistory();
+      input.select();
+      return;
+    } else {
+      const outcome = calculate(expression, ans, options);
+      if (!outcome.ok) return fail(outcome.error, outcome.error === 'missing-value' ? values.empty[0] : undefined);
+      steps.show(workingFor(expression, ans, options)); // before ans changes
+      result.classList.remove('is-error');
+      shown = outcome;
+      renderResult();
+      resultText = outcome.display;
+      exact = outcome.exact;
     }
-    ans = outcome.exact;
+    ans = exact;
     justEvaluated = true;
-    shown = outcome;
-    renderResult();
     // Trig worked in radians is tagged, so a later look at history is not misread as degrees.
-    const saved = angle === 'rad' && TRIG.test(expression) ? `${expression} [RAD]` : expression;
-    history = addEntry(history, { expression: saved, result: outcome.display, exact: outcome.exact, at: new Date().toISOString() });
+    const given = Object.keys(values.vars).map((letter) => `${letter} = ${valueTexts[letter].trim()}`);
+    let saved = given.length && !expression.includes('=') ? `${expression} (${given.join(', ')})` : expression;
+    if (angle === 'rad' && TRIG.test(expression)) saved += ' [RAD]';
+    history = addEntry(history, { expression: saved, result: resultText, exact, at: new Date().toISOString() });
     saveHistory(history);
     renderHistory();
     input.select(); // next keystroke replaces the expression; arrows keep editing it
@@ -246,6 +422,7 @@ export function renderApp(root: HTMLElement): void {
     input.focus();
   });
 
+  renderUnits();
   renderMode();
   renderHistory();
   root.replaceChildren(header, form, steps.element, historySection);

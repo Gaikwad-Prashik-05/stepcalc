@@ -19,7 +19,7 @@ const FUNCTIONS = {
   '10ˣ': '10^', 'eˣ': 'e^',
 } as const;
 /** Keys that insert a symbol; postfix ones continue from Ans right after "=". */
-const SYMBOLS = { 'x²': '²', 'xʸ': '^', 'x!': '!', π: 'π', e: 'ℯ', '(': '(', ')': ')', ',': ',' } as const;
+const SYMBOLS = { 'x²': '²', 'xʸ': '^', 'x!': '!', π: 'π', e: 'ℯ', '(': '(', ')': ')', ',': ',', x: 'x', eq: '=' } as const;
 const POSTFIX = new Set(['x²', 'xʸ', 'x!']);
 
 export type ScientificKey = keyof typeof FUNCTIONS | keyof typeof SYMBOLS | '±';
