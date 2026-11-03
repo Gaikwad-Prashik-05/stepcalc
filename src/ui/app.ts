@@ -1,7 +1,7 @@
 import { calculate, ERROR_MESSAGES } from '../core/engine';
 import { addEntry, clearHistory, groupByDay, type HistoryEntry } from '../core/history';
 import { applyKey, type Key } from '../core/keypad';
-import { columnWork } from '../core/steps';
+import { stepsFor } from '../core/steps-grid';
 import { loadHistory, saveHistory } from './history-store';
 import { createStepsView } from './steps-view';
 
@@ -123,7 +123,7 @@ export function renderApp(root: HTMLElement): void {
     const expression = input.value.trim();
     const outcome = calculate(expression, ans);
     result.classList.toggle('is-error', !outcome.ok);
-    steps.show(outcome.ok ? columnWork(expression) : null);
+    steps.show(outcome.ok ? stepsFor(expression) : null);
     if (!outcome.ok) {
       result.textContent = ERROR_MESSAGES[outcome.error];
       return; // Ans stays the last successful result

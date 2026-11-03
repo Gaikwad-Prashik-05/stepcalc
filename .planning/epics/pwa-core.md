@@ -35,7 +35,7 @@ All math, steps and recognition logic lives in `src/core/` (pure TypeScript, no 
 | 2 | calc-engine | done | [spec](../specs/calc-engine.md) | [plan](../plans/calc-engine.md) | #1 |
 | 3 | basic-mode-ui | done | [spec](../specs/basic-mode-ui.md) | — | #2 |
 | 4 | steps-add-sub | done | [spec](../specs/steps-add-sub.md) | — | #2 |
-| 5 | steps-mul-div | todo | — | — | #4 |
+| 5 | steps-mul-div | done | [spec](../specs/steps-mul-div.md) | — | #4 |
 | 6 | steps-bodmas-toggle | todo | — | — | #3, #5 |
 
 ---

@@ -24,7 +24,7 @@ const INT_PLACES = ['Ones', 'Tens', 'Hundreds', 'Thousands', 'Ten-thousands', 'H
 const FRACTION_PLACES = ['Tenths', 'Hundredths', 'Thousandths', 'Ten-thousandths'];
 
 /** Place name of column `col` in a grid `width` wide with `fractionDigits` decimal columns. */
-function placeName(col: number, width: number, fractionDigits: number): string {
+export function placeName(col: number, width: number, fractionDigits: number): string {
   const power = width - fractionDigits - 1 - col; // 0 = ones, -1 = tenths
   if (power >= 0) return INT_PLACES[power] ?? `10^${power} place`;
   return FRACTION_PLACES[-power - 1] ?? `10^${power} place`;
