@@ -51,7 +51,6 @@ const KEY_LABELS: Partial<Record<Key | '=' | Toggle, string>> = {
   x: 'Letter x', eq: 'Equals sign, to write an equation',
 };
 const KEY_TEXT: Partial<Record<Key | '=' | Toggle, string>> = { eq: '=' };
-const MODES = ['Basic', 'Scientific', 'Conversion', 'Draw'] as const;
 const READY_MODES = ['Basic', 'Scientific', 'Conversion', 'Draw'] as const;
 type Mode = (typeof READY_MODES)[number];
 const TRIG = /sin|cos|tan/;
@@ -115,20 +114,16 @@ export function renderApp(root: HTMLElement): void {
 
   const steps = createStepsView();
   const header = el('header', 'app-header');
-  const title = el('div');
-  title.append(el('h1', undefined, 'StepCalc'), el('p', 'tagline', 'Show my work'));
-  const modeSelect = el('select', 'mode-select');
-  modeSelect.setAttribute('aria-label', 'Mode');
-  for (const name of MODES) {
-    const ready = (READY_MODES as readonly string[]).includes(name);
-    const option = el('option', undefined, ready ? name : `${name} (soon)`);
-    option.value = name;
-    option.disabled = !ready;
-    modeSelect.append(option);
+  const modeTabs = el('div', 'mode-tabs');
+  modeTabs.setAttribute('role', 'group');
+  modeTabs.setAttribute('aria-label', 'Mode');
+  for (const name of READY_MODES) {
+    const tab = el('button', 'mode-tab', name === 'Conversion' ? 'Convert' : name);
+    tab.type = 'button';
+    tab.dataset.mode = name;
+    modeTabs.append(tab);
   }
-  const controls = el('div', 'header-controls');
-  controls.append(steps.switchElement, modeSelect);
-  header.append(title, controls);
+  header.append(el('h1', undefined, 'StepCalc'), steps.switchElement, modeTabs);
 
   const form = el('form', 'calc');
   const label = el('label', 'calc-label visually-hidden', 'Expression');
@@ -141,6 +136,9 @@ export function renderApp(root: HTMLElement): void {
   const result = el('output', 'calc-result');
   result.setAttribute('for', 'expression');
   result.setAttribute('role', 'status');
+  result.title = 'Tap to copy';
+  const display = el('div', 'display');
+  display.append(input, result);
 
   const keys = el('div', 'keys');
   const basicPad = buildKeys(KEYS, 'keypad');
@@ -172,7 +170,7 @@ export function renderApp(root: HTMLElement): void {
     },
     () => form.requestSubmit(),
   );
-  form.append(label, input, valueBoxes, result, convertPanel, draw.element, keys);
+  form.append(label, display, valueBoxes, convertPanel, draw.element, keys);
 
   function renderUnits(): void {
     const [from, to] = units.pairs[units.category];
@@ -250,16 +248,31 @@ export function renderApp(root: HTMLElement): void {
   const toggle = (name: Toggle) => functionKeys.querySelector<HTMLButtonElement>(`[data-toggle="${name}"]`)!;
 
   function renderResult(): void {
+    toggle('ENG').setAttribute('aria-pressed', String(view === 'ENG'));
+    toggle('S⇔D').setAttribute('aria-pressed', String(view === 'S⇔D'));
     if (!shown) return;
     const text = view === 'ENG' ? formatEng(shown.exact) : view === 'S⇔D' ? toFraction(shown.exact) ?? shown.display : shown.display;
     result.textContent = `= ${text}`;
-    toggle('ENG').setAttribute('aria-pressed', String(view === 'ENG'));
-    toggle('S⇔D').setAttribute('aria-pressed', String(view === 'S⇔D'));
+  }
+
+  /** While typing: the answer so far, muted. "=" confirms it, with working and a history entry. */
+  function preview(): void {
+    const expression = input.value.trim();
+    shown = null;
+    converted = null;
+    view = 'normal';
+    steps.show(null); // the old working no longer matches what is typed
+    const outcome = mode === 'Conversion' || expression.includes('=') ? null : calculate(expression, ans, { angle });
+    const text = outcome?.ok && outcome.display !== expression ? `= ${outcome.display}` : '';
+    result.textContent = text;
+    result.className = text ? 'calc-result is-preview' : 'calc-result';
+    result.setAttribute('aria-live', 'off'); // not read out on every keystroke
+    renderResult();
   }
 
   function renderMode(): void {
     const scientific = mode === 'Scientific';
-    modeSelect.value = mode;
+    for (const tab of modeTabs.children) tab.setAttribute('aria-pressed', String((tab as HTMLElement).dataset.mode === mode));
     basicPad.hidden = scientific;
     functionKeys.hidden = !scientific;
     scientificPad.hidden = !scientific;
@@ -309,19 +322,31 @@ export function renderApp(root: HTMLElement): void {
     input.setSelectionRange(next.start, next.end);
     justEvaluated = false;
     if (key === 'AC') clearResult();
+    else preview();
     renderValueBoxes();
   });
   // Keypad buttons must not steal focus, or the caret position is lost on touch.
   keys.addEventListener('pointerdown', (event) => event.preventDefault());
-  modeSelect.addEventListener('change', () => {
-    mode = (READY_MODES as readonly string[]).includes(modeSelect.value) ? (modeSelect.value as Mode) : 'Basic';
+  modeTabs.addEventListener('click', (event) => {
+    const chosen = (event.target as HTMLElement).closest<HTMLElement>('.mode-tab')?.dataset.mode as Mode | undefined;
+    if (!chosen || chosen === mode) return;
+    mode = chosen;
     savePref(MODE_KEY, mode);
     clearResult();
     renderMode();
   });
   input.addEventListener('input', () => {
     justEvaluated = false;
+    preview();
     renderValueBoxes();
+  });
+  result.addEventListener('click', () => {
+    const text = result.textContent!.replace(/^= /, '').replace(/,/g, '');
+    if (!text || result.classList.contains('is-error')) return;
+    void navigator.clipboard?.writeText(text).then(() => {
+      result.classList.add('copied');
+      setTimeout(() => result.classList.remove('copied'), 1200);
+    });
   });
   input.addEventListener('keydown', (event) => {
     if (event.key === 'Escape') {
@@ -338,7 +363,8 @@ export function renderApp(root: HTMLElement): void {
 
   const historySection = el('section', 'history');
   const historyHeader = el('div', 'history-header');
-  const clearButton = el('button', 'clear-history', 'Clear history');
+  const clearButton = el('button', 'clear-history', 'Clear');
+  clearButton.setAttribute('aria-label', 'Clear history');
   clearButton.type = 'button';
   historyHeader.append(el('h2', undefined, 'History'), clearButton);
   const historyList = el('div', 'history-list');
@@ -356,8 +382,13 @@ export function renderApp(root: HTMLElement): void {
         const list = el('ul');
         for (const entry of group.entries) {
           const item = el('li');
+          const reuse = el('button', 'history-item');
+          reuse.type = 'button';
+          reuse.dataset.value = formatNumber(entry.exact).replace(/,/g, '');
+          reuse.title = 'Tap to use this answer';
           // Solved equations already read "x = 4".
-          item.append(el('span', 'history-expression', entry.expression), el('span', 'history-result', entry.result.includes('=') ? entry.result : `= ${entry.result}`));
+          reuse.append(el('span', 'history-expression', entry.expression), el('span', 'history-result', entry.result.includes('=') ? entry.result : `= ${entry.result}`));
+          item.append(reuse);
           list.append(item);
         }
         block.append(el('h3', undefined, group.label), list);
@@ -366,8 +397,21 @@ export function renderApp(root: HTMLElement): void {
     );
   }
 
+  // Tap an old answer to use it: replaces a finished calculation, or goes in at the caret of one being typed.
+  historyList.addEventListener('click', (event) => {
+    const value = (event.target as HTMLElement).closest<HTMLElement>('.history-item')?.dataset.value;
+    if (!value) return;
+    input.setRangeText(value, input.selectionStart ?? 0, input.selectionEnd ?? input.value.length, 'end');
+    justEvaluated = false;
+    input.focus();
+    preview();
+    renderValueBoxes();
+  });
+
   form.addEventListener('submit', (event) => {
     event.preventDefault();
+    result.classList.remove('is-preview');
+    result.removeAttribute('aria-live');
     const expression = input.value.trim();
     const values = resolveValues(lettersToFill(expression), valueTexts, ans, { angle });
     const options = { angle, vars: values.vars };
@@ -439,5 +483,7 @@ export function renderApp(root: HTMLElement): void {
   renderUnits();
   renderMode();
   renderHistory();
-  root.replaceChildren(header, form, steps.element, historySection);
+  const side = el('div', 'side');
+  side.append(steps.element, historySection);
+  root.replaceChildren(header, form, side);
 }

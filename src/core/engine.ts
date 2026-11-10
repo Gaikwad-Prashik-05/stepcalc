@@ -41,6 +41,8 @@ export function normalise(expression: string): string {
     .replace(/×/g, '*')
     .replace(/÷/g, '/')
     .replace(/[−–]/g, '-')
+    // Python habit: 4**0.5
+    .replace(/\*\*/g, '^')
     .replace(/\bans\b/gi, 'Ans')
     // The e key types ℯ: always the constant, so 2ℯ3 is 2×e×3 and 2ℯ+3 is never read as 2e+3 (2000).
     .replace(/(?<=[\d.)πℯ])ℯ/g, '*ℯ')
@@ -56,8 +58,6 @@ export function normalise(expression: string): string {
     .replace(/√/g, 'sqrt')
     .replace(/²/g, '^2')
     .replace(/³/g, '^3')
-    // phone-style: a number right after % multiplies ("7%3" = 7% × 3), never remainder
-    .replace(/%\s*(?=[\d.(A-Za-z])/g, '%*')
     .replace(/[A-Za-z]+/g, splitLetters);
 }
 
@@ -93,12 +93,16 @@ function isAllowed(node: MathNode, letters: ReadonlySet<string>): boolean {
   return allowed;
 }
 
-/** `5!` → `fact(5)`, so factorial needs no extra mathjs code. */
-function rewriteFactorial(node: MathNode): MathNode {
+/**
+ * `5!` → `fact(5)` and `7%3` → `mod(7, 3)`, so neither needs extra mathjs code.
+ * A number after % makes it remainder, floored like Python (-10%3 = 2); otherwise % is percent (50+10%).
+ */
+const AS_FUNCTION: Record<string, string> = { factorial: 'fact', mod: 'mod' };
+function rewriteOperators(node: MathNode): MathNode {
   return node.transform((n) => {
     const op = n as unknown as { type: string; fn?: string; args?: MathNode[] };
-    if (op.type === 'OperatorNode' && op.fn === 'factorial') {
-      return new math.FunctionNode(new math.SymbolNode('fact'), [rewriteFactorial(op.args![0])]);
+    if (op.type === 'OperatorNode' && op.fn! in AS_FUNCTION) {
+      return new math.FunctionNode(new math.SymbolNode(AS_FUNCTION[op.fn!]), op.args!.map(rewriteOperators));
     }
     return n;
   });
@@ -106,7 +110,7 @@ function rewriteFactorial(node: MathNode): MathNode {
 
 /** Parses and checks an expression; throws on anything the calculator does not support. */
 export function parseExpression(expression: string, letters: ReadonlySet<string> = new Set()): MathNode {
-  const node = rewriteFactorial(math.parse(normalise(expression)));
+  const node = rewriteOperators(math.parse(normalise(expression)));
   if (!isAllowed(node, letters)) throw new Error('not allowed');
   return node;
 }

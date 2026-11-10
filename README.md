@@ -7,7 +7,7 @@ A calculator that doesn't just give the answer — it shows the working, the way
 ## Features
 
 - **Steps** — school working for every answer: column addition with carries, subtraction with borrows, long multiplication, long division, and mixed sums worked one operation at a time in BODMAS order
-- **Basic mode** — phone-style keypad, exact decimals, phone-style percent, `Ans`, history saved on your device
+- **Basic mode** — phone-style keypad, exact decimals, live answer as you type, percent (`50+10%`) and Python-style remainder and power (`-10%3` = 2, `4**0.5` = 2), `Ans`, history saved on your device (tap an entry to reuse it)
 - **Scientific mode** — sin/cos/tan and inverses, log, ln, powers, roots, x!, nCr/nPr, π, e, DEG/RAD, ENG notation and fractions (S⇔D); functions show up as steps too
 - **Letters and equations** — `2x + y` asks for x and y; `2x + 3 = 11` is solved for the letter left empty (`x = 4`, `x² = 4` → `x = -2 or 2`)
 - **Conversion mode** — length, mass, temperature, area, volume, data, time and speed with exact factors, working shown

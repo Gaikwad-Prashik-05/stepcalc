@@ -39,9 +39,17 @@ describe('calculate: phone-style percent', () => {
     ['50-10%', '45'],
     ['200×15%', '30'],
     ['10%', '0.1'],
-    ['7%3', '0.21'],
-    ['7% 3', '0.21'],
-    ['50%(4)', '2'],
+    ['50%×4', '2'],
+    // a number after % is remainder, floored like Python
+    ['7%3', '1'],
+    ['7% 3', '1'],
+    ['7 mod 3', '1'],
+    ['-10%3', '2'],
+    ['10%(0-3)', '-2'],
+    ['5.5%2', '1.5'],
+    ['2+7%3×2', '4'],
+    ['4**0.5', '2'],
+    ['2**3**2', '512'],
   ])('%s = %s', (expression, expected) => {
     expect(display(expression)).toBe(expected);
   });
@@ -80,7 +88,7 @@ describe('calculate: errors never throw', () => {
     ['foo+1', 'missing-value'],
     ['sinh(1)', 'invalid'],
     ['x + 1', 'missing-value'],
-    ['7 mod 3', 'invalid'],
+    ['7%0', 'divide-by-zero'],
     ['f(x) = x', 'invalid'],
     ['[1, 2]', 'invalid'],
     ['a = 1; 2', 'invalid'],
