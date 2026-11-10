@@ -2,7 +2,7 @@ import type { BigNumber, MathNode } from 'mathjs';
 import { calculate, evaluationScope, lettersIn, parseExpression, type CalcOptions } from './engine';
 import { formatNumber } from './format';
 import { math } from './math';
-import { stepsFor, type GridWork } from './steps-grid';
+import { stepsFor, textGrid, type GridWork } from './steps-grid';
 
 export interface BreakdownStep {
   /** The whole expression after this step, e.g. "= 5 + 6". */
@@ -75,7 +75,7 @@ function nextOperation(root: MathNode): Step | null {
   return (best as { node: Step } | null)?.node ?? null;
 }
 
-const show = (value: BigNumber) => formatNumber(value.toString()).replace(/-/g, '−');
+export const show = (value: BigNumber) => formatNumber(value.toString()).replace(/-/g, '−');
 
 function print(root: MathNode): string {
   if (isConstant(root)) return show(valueOf(root));
@@ -90,6 +90,7 @@ function print(root: MathNode): string {
       if (node.type === 'FunctionNode') {
         const call = node as Call;
         const args = call.args.map((arg) => arg.toString(options));
+        if (call.fn.name === 'mod') return `${args[0]} mod ${args[1]}`;
         if (call.fn.name === 'fact') return isConstant(call.args[0]) && !valueOf(call.args[0]).isNegative() ? `${args[0]}!` : `(${args[0]})!`;
         return `${FUNCTION_LABELS[call.fn.name] ?? call.fn.name}(${args.join(', ')})`;
       }
@@ -107,9 +108,45 @@ function print(root: MathNode): string {
   return text.replace(/\*/g, '×').replace(/\//g, '÷').replace(/-/g, '−');
 }
 
-function detailFor(fn: string, a: BigNumber, b: BigNumber): GridWork | null {
+const bracketed = (value: BigNumber) => (value.isNegative() ? `(${show(value)})` : show(value));
+const MAX_REPEATS = 12;
+
+/** Remainder the way it is checked by hand: divide, round down, multiply back, subtract. */
+function remainderDetail(a: BigNumber, b: BigNumber, remainder: BigNumber): GridWork {
+  const whole = a.div(b).floor();
+  const back = whole.times(b);
+  return textGrid(
+    [
+      `${show(a)} ÷ ${bracketed(b)} = ${show(a.div(b))}`,
+      `whole part, rounded down = ${show(whole)}`,
+      `${show(whole)} × ${bracketed(b)} = ${show(back)}`,
+      `${show(a)} − ${bracketed(back)} = ${show(remainder)}`,
+    ],
+    ['Divide, then keep only the whole part, rounding down (so −3.33 goes down to −4).', 'Multiply that whole part back by the divisor.', 'Take it away from the number you started with. What is left is the remainder.'],
+    `Remainder of ${show(a)} divided by ${show(b)} is ${show(remainder)}`,
+  );
+}
+
+/** A power written out: repeated multiplication, a square root for one half, or one over for a negative power. */
+function powerDetail(a: BigNumber, b: BigNumber, value: BigNumber): GridWork | null {
+  const label = `${show(a)} to the power ${show(b)} is ${show(value)}`;
+  const base = bracketed(a);
+  if (b.eq(0.5)) return textGrid([`${base} ^ 0.5 = √${base}`, `= ${show(value)}`], ['A power of 0.5 (one half) means the square root.'], label);
+  if (!b.isInteger() || b.abs().lt(2) || b.abs().gt(MAX_REPEATS)) return null;
+  const repeated = Array<string>(b.abs().toNumber()).fill(base).join(' × ');
+  if (b.isPositive()) return textGrid([`${base} ^ ${show(b)} = ${repeated}`, `= ${show(value)}`], [`Multiply ${show(a)} by itself, ${show(b)} times in all.`], label);
+  const below = a.pow(b.abs());
+  return textGrid(
+    [`${base} ^ ${bracketed(b)} = 1 ÷ (${repeated})`, `= 1 ÷ ${bracketed(below)}`, `= ${show(value)}`],
+    ['A negative power means one divided by the same power made positive.'],
+    label,
+  );
+}
+
+function detailFor(fn: string, a: BigNumber, b: BigNumber, value: BigNumber): GridWork | null {
+  if (fn === 'pow') return powerDetail(a, b, value);
   const [x, y] = [a.toString(), b.toString()];
-  if (fn === 'pow' || !PLAIN.test(x) || !PLAIN.test(y)) return null;
+  if (!PLAIN.test(x) || !PLAIN.test(y)) return null;
   return stepsFor(`${x} ${SYMBOLS[fn]} ${y}`);
 }
 
@@ -119,8 +156,7 @@ function detailFor(fn: string, a: BigNumber, b: BigNumber): GridWork | null {
  */
 export function workingFor(expression: string, ans = '0', options: CalcOptions = {}): Working | null {
   const engine = calculate(expression, ans, options);
-  // % is rewritten by mathjs into a different tree, so it gets no breakdown (yet).
-  if (!engine.ok || expression.includes('%')) return null;
+  if (!engine.ok) return null;
 
   const scope = evaluationScope(ans, options);
   const isName = (n: MathNode, path: string, parent: MathNode | null) => n.type === 'SymbolNode' && !(parent?.type === 'FunctionNode' && path === 'fn');
@@ -133,6 +169,8 @@ export function workingFor(expression: string, ans = '0', options: CalcOptions =
     tree = tidy(parseExpression(expression, new Set(lettersIn(expression))).transform((n, path, parent) =>
       isName(n, path, parent) && nameOf(n) === 'Ans' ? constant(math.bignumber(ans)) : n,
     ));
+    // Percent (50+10%) is rewritten by mathjs into a different tree, so it gets no breakdown (yet).
+    if (tree.filter((n) => (n as unknown as { isPercentage?: boolean }).isPercentage).length) return null;
     start = print(tree);
     const substituted = new Map<string, BigNumber>();
     tree = tidy(tree.transform((n, path, parent) => {
@@ -157,11 +195,13 @@ export function workingFor(expression: string, ans = '0', options: CalcOptions =
       const before = print(target);
       tree = tidy(tree.transform((n) => (n === target ? constant(value) : n)));
       if (target.type === 'FunctionNode') {
-        steps.push({ line: `= ${print(tree)}`, op: `${before} = ${show(value)}`, detail: null });
+        const call = target as Call;
+        const detail = call.fn.name === 'mod' ? remainderDetail(valueOf(call.args[0]), valueOf(call.args[1]), value) : null;
+        steps.push({ line: `= ${print(tree)}`, op: `${before} = ${show(value)}`, detail });
       } else {
         const op = target as Op;
         const [a, b] = op.args.map(valueOf);
-        steps.push({ line: `= ${print(tree)}`, op: `${show(a)} ${SYMBOLS[op.fn]} ${show(b)} = ${show(value)}`, detail: detailFor(op.fn, a, b) });
+        steps.push({ line: `= ${print(tree)}`, op: `${show(a)} ${SYMBOLS[op.fn]} ${show(b)} = ${show(value)}`, detail: detailFor(op.fn, a, b, value) });
       }
     }
   } catch {

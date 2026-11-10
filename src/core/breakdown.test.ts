@@ -26,7 +26,7 @@ describe('workingFor: BODMAS breakdown', () => {
   it('brackets first, then orders', () => {
     const w = breakdown('(2 + 3) × 4 + 2 ^ 3');
     expect(lines(w)).toEqual(['= 5 × 4 + 2 ^ 3', '= 5 × 4 + 8', '= 20 + 8', '= 28']);
-    expect(w.steps[1].detail).toBeNull(); // no column working for powers
+    expect(w.steps[1].detail!.lines.map((l) => l.text)).toEqual(['2 ^ 3 = 2 × 2 × 2', '= 8']);
   });
 
   it('works left to right for equal priority', () => {
@@ -62,7 +62,7 @@ describe('workingFor: single operation', () => {
     expect(w?.kind === 'grid' && w.grid.label).toBe('Column addition: 10 plus 5 equals 15');
   });
 
-  it.each(['', '5', '50 + 10%', '2 ^ 3', '1 ÷ 0', 'abc'])('no working for %s', (e) => {
+  it.each(['', '5', '50 + 10%', '2 ^ 0.3', '1 ÷ 0', 'abc'])('no working for %s', (e) => {
     expect(workingFor(e)).toBeNull();
   });
 });

@@ -26,8 +26,11 @@ export interface Reading {
 /** Shapes that are easy to mix up; the layout offers them as alternatives. */
 const LOOK_ALIKE: Record<string, string[]> = {
   '1': ['l', 'i'], l: ['1', 'i'], i: ['1', 'l'], '0': ['o'], o: ['0'], '5': ['s'], s: ['5'], '9': ['g'], g: ['9'],
-  x: ['×', '+'], '×': ['x', '+'], '+': ['t', 'x'], t: ['+'], '(': ['c'], c: ['('], y: ['4'], '4': ['y'],
+  x: ['×', '+'], '×': ['x', '+'], '+': ['t', 'x'], t: ['+', 'l'], '(': ['c'], c: ['(', 'e'], y: ['4', 'g'], '4': ['y', '9'],
+  a: ['d', 'n'], d: ['a'], n: ['a'], e: ['c'],
 };
+/** What a wrongly read ∫ usually shows as, and what ∫ can be tapped back to. */
+const INTEGRAL_LOOK_ALIKE = ['(', 'l', '1', 's'];
 const FUNCTION_NAMES = ['sin', 'cos', 'tan', 'log', 'ln'];
 const DIGIT = /^[\d.]$/;
 const CAN_TAKE_POWER = /^[\da-zπ)]$/;
@@ -35,6 +38,7 @@ const CAN_TAKE_POWER = /^[\da-zπ)]$/;
 type Item =
   | { kind: 'symbol'; box: Box; key: string; strokes: number[]; alternatives: string[] }
   | { kind: 'fraction'; box: Box; top: Item[]; bottom: Item[] }
+  | { kind: 'integral'; box: Box; key: string; upper: Item[]; lower: Item[] }
   | { kind: 'root'; box: Box; inside: Item[] };
 
 const width = (b: Box) => b.maxX - b.minX;
@@ -101,6 +105,45 @@ export function readDrawing(
       rest = rest.filter((i) => i !== root && !inside.includes(i));
     }
 
+    // ∫: a tall stroke read as the integral sign (or tapped to be one). Small symbols by its top and bottom are the limits.
+    for (const sign of [...rest].filter(isInk).sort((a, b) => boxes[a].minX - boxes[b].minX)) {
+      if (!rest.includes(sign)) continue;
+      const s = boxes[sign];
+      const key = String(sign);
+      const tall = height(s) > 1.3 * unit && height(s) > 1.6 * width(s);
+      const picked = choices.get(key);
+      if (picked ? picked !== '∫(' : !tall) continue;
+      // Limits sit close to the sign; a power further along (x²) is not one.
+      const limits: number[] = [];
+      let edge = s.maxX;
+      for (const i of rest.filter((j) => j !== sign && cx(boxes[j]) > s.minX).sort((a, b) => boxes[a].minX - boxes[b].minX)) {
+        const o = boxes[i];
+        if (o.minX > edge + 0.6 * unit) break;
+        if (o.maxY < s.minY + 0.38 * height(s) || o.minY > s.minY + 0.62 * height(s)) {
+          limits.push(i);
+          edge = Math.max(edge, o.maxX);
+        }
+      }
+      const upper = limits.filter((i) => cy(boxes[i]) < cy(s));
+      const lower = limits.filter((i) => cy(boxes[i]) > cy(s));
+      if (!picked && !(upper.length && lower.length)) {
+        // No limits yet to give it away: go by the shape of the stroke alone.
+        const cacheKey = `${key}|∫`;
+        const top = cache.get(cacheKey) ?? [recognizer.recognize([strokes[sign]])[0]?.label ?? ''];
+        cache.set(cacheKey, top);
+        if (top[0] !== '∫') continue;
+      }
+      symbols.set(key, [sign]);
+      items.push({
+        kind: 'integral',
+        box: union([s, ...limits.map((i) => boxes[i])]),
+        key,
+        upper: readRegion(upper),
+        lower: readRegion(lower),
+      });
+      rest = rest.filter((i) => i !== sign && !limits.includes(i));
+    }
+
     // Symbols: strokes that overlap horizontally belong together (+, =, ÷, i, 4).
     const groups: number[][] = [];
     for (const i of [...rest].sort((a, b) => boxes[a].minX - boxes[b].minX)) {
@@ -139,7 +182,9 @@ export function readDrawing(
     const ranked = recognizer.recognize(group.map((i) => strokes[i])).slice(0, 3).map((a) => a.label);
     const out: string[] = [];
     for (const label of [ranked[0], ...(LOOK_ALIKE[ranked[0]] ?? []), ...ranked.slice(1)]) if (label && !out.includes(label)) out.push(label);
-    return out.slice(0, 5);
+    // A lone tall stroke can always be tapped into an integral sign: the first pass above then takes it.
+    if (group.length === 1 && (ranked.includes('∫') || INTEGRAL_LOOK_ALIKE.includes(out[0]))) out.splice(Math.min(2, out.length), 0, '∫(');
+    return out.filter((label) => label !== '∫').slice(0, 5);
   }
 
   const items = readRegion(strokes.map((_, i) => i));
@@ -179,10 +224,26 @@ function linearize(items: Item[], choices: ReadonlyMap<string, string>): Token[]
     }
   }
 
+  /** The item reads as this letter: for the d, any of its guesses will do, since d is easily taken for a. */
+  const reads = (item: Item | undefined, letter: string) =>
+    item?.kind === 'symbol' && (choices.has(item.key) ? choices.get(item.key) === letter : item.alternatives[0] === letter || (letter === 'd' && item.alternatives.includes('d')));
+
   let i = 0;
   let base: Item | undefined; // what a raised symbol would be the power of
   while (i < items.length) {
     const item = items[i];
+    if (item.kind === 'integral') {
+      // Everything up to the closing "dx" (or the end) is being integrated: ∫(f, from, to).
+      let end = items.length;
+      for (let j = items.length - 2; j > i; j--) if (reads(items[j], 'd') && reads(items[j + 1], 'x')) end = j;
+      tokens.push(
+        { text: '∫(', key: item.key, alternatives: ['∫(', ...INTEGRAL_LOOK_ALIKE] },
+        ...linearize(items.slice(i + 1, end), choices), { text: ',' }, ...linearize(item.lower, choices), { text: ',' }, ...linearize(item.upper, choices), { text: ')' },
+      );
+      i = Math.min(end + 2, items.length);
+      base = undefined;
+      continue;
+    }
     const name = functionAt.get(i);
     if (name) {
       tokens.push({ text: name, key: `fn:${(items[i] as { key: string }).key}`, alternatives: [name, name.split('').join('·')] });
@@ -227,6 +288,7 @@ function isRaised(item: Item, base: Item): boolean {
 function tokensFor(item: Item, before: Item | undefined, after: Item | undefined, choices: ReadonlyMap<string, string>): Token[] {
   if (item.kind === 'fraction') return [{ text: '(' }, ...linearize(item.top, choices), { text: ')÷(' }, ...linearize(item.bottom, choices), { text: ')' }];
   if (item.kind === 'root') return [{ text: '√(' }, ...linearize(item.inside, choices), { text: ')' }];
+  if (item.kind === 'integral') return [{ text: '∫' }]; // only reached inside a power or a function's argument, where it cannot be read
   let alternatives = item.alternatives;
   if (alternatives[0] === 'x') {
     // An x between two numbers is a times sign; anywhere else it is the letter.

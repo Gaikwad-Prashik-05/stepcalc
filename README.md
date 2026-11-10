@@ -11,7 +11,8 @@ A calculator that doesn't just give the answer — it shows the working, the way
 - **Scientific mode** — sin/cos/tan and inverses, log, ln, powers, roots, x!, nCr/nPr, π, e, DEG/RAD, ENG notation and fractions (S⇔D); functions show up as steps too
 - **Letters and equations** — `2x + y` asks for x and y; `2x + 3 = 11` is solved for the letter left empty (`x = 4`, `x² = 4` → `x = -2 or 2`)
 - **Conversion mode** — length, mass, temperature, area, volume, data, time and speed with exact factors, working shown
-- **Draw mode** — handwrite an expression (powers, fractions, √, sin/log) and get the answer, fully offline; tap any symbol to fix it, and teach it your handwriting
+- **Integrals** — `∫(3x²+2x, 0, 2)` from the ∫ key or drawn by hand with its limits; worked out like a Casio, with the rule for each term, F(x), then F(b) − F(a) as steps
+- **Draw mode** — handwrite an expression (powers, fractions, √, sin/log, integrals) on a canvas that fills the screen and get the answer, fully offline; it starts out knowing real handwriting from many people, you can tap any symbol to fix it, and teach it your own
 
 ## Planned
 
@@ -45,3 +46,7 @@ src/main.ts entry + service worker registration
 ## License
 
 MIT
+
+## Credits
+
+Draw mode's built-in handwriting comes from the [UJI Pen Characters (Version 2)](https://archive.ics.uci.edu/dataset/175/uji+pen+characters+version+2) data set (D. Llorens et al., Universitat Jaume I), licensed [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). `scripts/handwriting-data.test.ts` rebuilds it.

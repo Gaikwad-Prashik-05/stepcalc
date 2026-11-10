@@ -85,6 +85,10 @@ export function functionScope(angle: AngleUnit): Record<string, (...args: BigNum
       if (b > a) throw new MathError();
       return big(product(a - b + 1, a).toString());
     },
+    // Placeholder so the name is known: the engine works integrals out itself, before evaluation.
+    integrate: () => {
+      throw new MathError();
+    },
     mod: (a, b) => {
       if (!b || b.isZero()) throw new DivideByZero();
       return a.minus(b.times(a.div(b).floor()));

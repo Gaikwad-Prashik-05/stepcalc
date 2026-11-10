@@ -30,6 +30,8 @@ export function formatNumber(exact: string): string {
 }
 
 const SUPERSCRIPT: Record<string, string> = { '-': '⁻', 0: '⁰', 1: '¹', 2: '²', 3: '³', 4: '⁴', 5: '⁵', 6: '⁶', 7: '⁷', 8: '⁸', 9: '⁹' };
+/** A whole number as raised digits: -3 → ⁻³. */
+export const superscript = (integer: string | number) => String(integer).replace(/./g, (c) => SUPERSCRIPT[c]);
 
 /** Engineering notation: mantissa 1–999 with 12 significant digits, exponent a multiple of 3. */
 export function formatEng(exact: string): string {
@@ -39,7 +41,7 @@ export function formatEng(exact: string): string {
   const exponent = Math.floor(value.e / 3) * 3;
   const mantissa = value.div(math.bignumber(10).pow(exponent)).toSignificantDigits(SIGNIFICANT_DIGITS, ROUND_HALF_UP).toFixed();
   if (exponent === 0) return mantissa;
-  return `${mantissa}×10${String(exponent).replace(/./g, (c) => SUPERSCRIPT[c])}`;
+  return `${mantissa}×10${superscript(exponent)}`;
 }
 
 const MAX_DENOMINATOR = 10_000;

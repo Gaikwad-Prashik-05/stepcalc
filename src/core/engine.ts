@@ -1,6 +1,7 @@
 import type { BigNumber, MathNode } from 'mathjs';
 import { formatNumber } from './format';
 import { DivideByZero, E, FUNCTION_NAMES, functionScope, MathError, PI, type AngleUnit } from './functions';
+import { integrate } from './integral';
 import { math } from './math';
 
 export type CalcError =
@@ -51,6 +52,7 @@ export function normalise(expression: string): string {
     .replace(/π/g, 'pi')
     .replace(/(sin|cos|tan)⁻¹/g, 'a$1')
     .replace(/ⁿ√/g, 'root')
+    .replace(/∫/g, 'integrate')
     .replace(/ⁿ/g, '^n')
     // √16 without brackets, like on a Casio
     .replace(/([√∛])(\d+(?:\.\d+)?|[a-zπ])/gi, '$1($2)')
@@ -76,6 +78,11 @@ function splitLetters(word: string, offset: number, text: string): string {
 }
 
 type Parent = MathNode | null;
+type Call = MathNode & { fn: { name?: string }; args: MathNode[] };
+
+/** `∫(f, a, b)`: f is in terms of x, which belongs to the integral and never needs a value. */
+export const isIntegral = (node: MathNode): node is Call => node.type === 'FunctionNode' && (node as Call).fn.name === 'integrate';
+const BOUND = 'x';
 
 /** Basic + scientific: numbers, operators, brackets, known functions, Ans/π/e and the given letters. */
 function isAllowed(node: MathNode, letters: ReadonlySet<string>): boolean {
@@ -111,7 +118,9 @@ function rewriteOperators(node: MathNode): MathNode {
 /** Parses and checks an expression; throws on anything the calculator does not support. */
 export function parseExpression(expression: string, letters: ReadonlySet<string> = new Set()): MathNode {
   const node = rewriteOperators(math.parse(normalise(expression)));
-  if (!isAllowed(node, letters)) throw new Error('not allowed');
+  const integrals = node.filter(isIntegral) as Call[];
+  if (integrals.some((call) => call.args.length !== 3)) throw new Error('integral needs ∫(f, from, to)');
+  if (!isAllowed(node, integrals.length ? new Set([...letters, BOUND]) : letters)) throw new Error('not allowed');
   return node;
 }
 
@@ -119,11 +128,14 @@ export function parseExpression(expression: string, letters: ReadonlySet<string>
 export function lettersIn(expression: string): string[] {
   try {
     const found = new Set<string>();
-    math.parse(normalise(expression.split('=').join('+'))).traverse((n, path, parent: Parent) => {
+    // forEach skips a function's own name, so sin is never taken for letters.
+    const visit = (n: MathNode, bound: boolean): void => {
+      if (isIntegral(n)) return n.args.forEach((arg, i) => visit(arg, bound || i === 0));
       const name = (n as unknown as { name?: string }).name;
-      const isFunctionName = parent?.type === 'FunctionNode' && path === 'fn';
-      if (n.type === 'SymbolNode' && !isFunctionName && name && VARIABLE.test(name)) found.add(name);
-    });
+      if (n.type === 'SymbolNode' && name && VARIABLE.test(name) && !(bound && name === BOUND)) found.add(name);
+      n.forEach((child) => visit(child, bound));
+    };
+    visit(math.parse(normalise(expression.split('=').join('+'))), false);
     return [...found].sort();
   } catch {
     return [];
@@ -150,9 +162,19 @@ function dividesByZero(node: MathNode, scope: Record<string, unknown>): boolean 
   return found;
 }
 
+/** Each ∫(f, a, b) replaced by its value. */
+function resolveIntegrals(node: MathNode, scope: Record<string, unknown>): MathNode {
+  return node.transform((n) => {
+    if (!isIntegral(n)) return n;
+    const [f, a, b] = n.args;
+    return new math.ConstantNode(integrate(f, resolveIntegrals(a, scope).evaluate(scope), resolveIntegrals(b, scope).evaluate(scope), scope));
+  });
+}
+
 /** Evaluates an already-parsed node; errors become CalcResult errors. */
-export function evaluateNode(node: MathNode, scope: Record<string, unknown>): CalcResult {
+export function evaluateNode(parsed: MathNode, scope: Record<string, unknown>): CalcResult {
   try {
+    const node = resolveIntegrals(parsed, scope);
     if (dividesByZero(node, scope)) return { ok: false, error: 'divide-by-zero' };
     const value: unknown = node.evaluate(scope);
     if (!math.isBigNumber(value)) return { ok: false, error: 'invalid' };

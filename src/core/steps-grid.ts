@@ -31,6 +31,11 @@ export interface GridWork {
   label: string;
 }
 
+/** Working that is just lines of text (no digit columns), with the same notes as a grid. */
+export function textGrid(lines: string[], notes: string[], label: string): GridWork {
+  return { columns: 0, pointBefore: null, lines: lines.map((text) => ({ style: 'text', cells: [], text })), notes, label };
+}
+
 /** `text` right-aligned so its last character lands in column `end`. */
 export function placeRight(text: string, end: number, columns: number): string[] {
   const cells = Array<string>(columns).fill('');

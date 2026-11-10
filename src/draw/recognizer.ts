@@ -17,12 +17,19 @@ export interface Recognizer {
 
 interface Template {
   label: string;
-  points: CloudPoint[];
+  points: Oriented[];
   user: boolean;
 }
-interface CloudPoint extends Point {
+/** A point plus which way the pen was heading there, as the doubled angle so that drawing direction does not matter. */
+export interface Oriented extends Point {
+  ox: number;
+  oy: number;
+}
+interface CloudPoint extends Oriented {
   stroke: number;
 }
+/** How much heading counts next to position: it tells 4 from 9 and t from ( where the dots alone look alike. */
+export const TUNING = { heading: 0.15 };
 
 const N = 32;
 // A user's own sample counts as a little closer than a built-in one, so teaching wins ties.
@@ -30,9 +37,20 @@ const USER_BIAS = 0.85;
 
 /** Resamples all strokes to N points spaced evenly along the pen path, scaled to fit 1×1 and centred. */
 export function normalize(strokes: Stroke[]): CloudPoint[] {
-  const points: CloudPoint[] = strokes.flatMap((stroke, i) => stroke.map((p) => ({ x: p.x, y: p.y, stroke: i })));
+  const points: CloudPoint[] = strokes.flatMap((stroke, i) => stroke.map((p) => ({ x: p.x, y: p.y, stroke: i, ox: 0, oy: 0 })));
   if (!points.length) return [];
-  return translateToOrigin(scale(resample(points)));
+  return translateToOrigin(scale(withHeading(resample(points))));
+}
+
+function withHeading(points: CloudPoint[]): CloudPoint[] {
+  return points.map((p, i) => {
+    const before = points[i - 1]?.stroke === p.stroke ? points[i - 1] : p;
+    const after = points[i + 1]?.stroke === p.stroke ? points[i + 1] : p;
+    const [dx, dy] = [after.x - before.x, after.y - before.y];
+    if (!dx && !dy) return p; // a dot has no heading
+    const angle = 2 * Math.atan2(dy, dx);
+    return { ...p, ox: Math.cos(angle), oy: Math.sin(angle) };
+  });
 }
 
 function resample(points: CloudPoint[]): CloudPoint[] {
@@ -51,7 +69,7 @@ function resample(points: CloudPoint[]): CloudPoint[] {
     const d = dist(pts[i - 1], pts[i]);
     if (carried + d >= interval && d > 0) {
       const t = (interval - carried) / d;
-      const q = { x: pts[i - 1].x + t * (pts[i].x - pts[i - 1].x), y: pts[i - 1].y + t * (pts[i].y - pts[i - 1].y), stroke: pts[i].stroke };
+      const q = { ...pts[i], x: pts[i - 1].x + t * (pts[i].x - pts[i - 1].x), y: pts[i - 1].y + t * (pts[i].y - pts[i - 1].y) };
       out.push(q);
       pts.splice(i, 0, q); // q starts the next segment
       carried = 0;
@@ -68,13 +86,13 @@ function scale(points: CloudPoint[]): CloudPoint[] {
   const ys = points.map((p) => p.y);
   const size = Math.max(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys)) || 1;
   const [minX, minY] = [Math.min(...xs), Math.min(...ys)];
-  return points.map((p) => ({ x: (p.x - minX) / size, y: (p.y - minY) / size, stroke: p.stroke }));
+  return points.map((p) => ({ ...p, x: (p.x - minX) / size, y: (p.y - minY) / size }));
 }
 
 function translateToOrigin(points: CloudPoint[]): CloudPoint[] {
   const cx = points.reduce((s, p) => s + p.x, 0) / points.length;
   const cy = points.reduce((s, p) => s + p.y, 0) / points.length;
-  return points.map((p) => ({ x: p.x - cx, y: p.y - cy, stroke: p.stroke }));
+  return points.map((p) => ({ ...p, x: p.x - cx, y: p.y - cy }));
 }
 
 // Not Math.hypot: it is several times slower, and this runs ~10⁵ times per symbol.
@@ -85,7 +103,12 @@ const dist = (a: Point, b: Point) => {
 };
 
 /** Weighted greedy matching cost; gives up early once it cannot beat `limit`. */
-function cloudDistance(a: CloudPoint[], b: CloudPoint[], start: number, limit: number): number {
+const apart = (a: Oriented, b: Oriented) => {
+  const [dx, dy, hx, hy] = [a.x - b.x, a.y - b.y, a.ox - b.ox, a.oy - b.oy];
+  return Math.sqrt(dx * dx + dy * dy) + TUNING.heading * Math.sqrt(hx * hx + hy * hy);
+};
+
+function cloudDistance(a: Oriented[], b: Oriented[], start: number, limit: number): number {
   const matched = new Array<boolean>(N).fill(false);
   let sum = 0;
   let i = start;
@@ -95,7 +118,7 @@ function cloudDistance(a: CloudPoint[], b: CloudPoint[], start: number, limit: n
     let index = 0;
     for (let j = 0; j < N; j++) {
       if (matched[j]) continue;
-      const d = dist(a[i], b[j]);
+      const d = apart(a[i], b[j]);
       if (d < min) [min, index] = [d, j];
     }
     matched[index] = true;
@@ -105,7 +128,7 @@ function cloudDistance(a: CloudPoint[], b: CloudPoint[], start: number, limit: n
   return sum;
 }
 
-function greedyCloudMatch(points: CloudPoint[], template: CloudPoint[], limit: number): number {
+export function greedyCloudMatch(points: Oriented[], template: Oriented[], limit = Infinity): number {
   const step = Math.floor(Math.sqrt(N));
   let min = limit;
   for (let i = 0; i < N; i += step) {
@@ -126,6 +149,11 @@ export class PointCloudRecognizer implements Recognizer {
   add(label: string, strokes: Stroke[], user = true): void {
     const points = normalize(strokes);
     if (points.length === N) this.templates.push({ label, points, user });
+  }
+
+  /** Adds samples already reduced to N normalised points, packed as hex by `pack` (the built-in handwriting data). */
+  addPacked(label: string, packed: readonly string[]): void {
+    for (const hex of packed) this.templates.push({ label, points: unpack(hex), user: false });
   }
 
   /** Every label once, closest first. */
@@ -151,4 +179,16 @@ export function compact(strokes: Stroke[]): Stroke[] {
     (out[p.stroke] ??= []).push({ x: Math.round(p.x * 1000) / 1000, y: Math.round(p.y * 1000) / 1000 });
   }
   return out.filter(Boolean);
+}
+
+// Normalised points lie within −1…1 of the centre, and so do headings; one byte each is finer than a pen is steady.
+const FIELDS = ['x', 'y', 'ox', 'oy'] as const;
+/** N normalised points as 8 hex digits each (x, y, heading). */
+export function pack(points: Oriented[]): string {
+  const byte = (v: number) => Math.max(0, Math.min(255, Math.round((v + 1) * 127.5))).toString(16).padStart(2, '0');
+  return points.map((p) => FIELDS.map((f) => byte(p[f])).join('')).join('');
+}
+function unpack(hex: string): Oriented[] {
+  const value = (i: number) => parseInt(hex.slice(i, i + 2), 16) / 127.5 - 1;
+  return Array.from({ length: hex.length / 8 }, (_, i) => ({ x: value(8 * i), y: value(8 * i + 2), ox: value(8 * i + 4), oy: value(8 * i + 6) }));
 }

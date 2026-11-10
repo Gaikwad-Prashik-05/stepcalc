@@ -27,6 +27,12 @@ export function createDrawView(onRead: (expression: string) => void, onEquals: (
   const samples = loadSamples();
   const recognizer = new PointCloudRecognizer(BUILT_IN_TEMPLATES);
   for (const [label, list] of Object.entries(samples)) for (const sample of list) recognizer.add(label, sample);
+  // Real handwriting from many people (its own file, fetched once and kept offline with the rest of the app).
+  void import('../draw/handwriting-data').then(({ HANDWRITING }) => {
+    for (const [label, packed] of Object.entries(HANDWRITING)) recognizer.addPacked(label, packed);
+    cache = new Map();
+    if (strokes.length) update();
+  });
 
   let strokes: Stroke[] = [];
   let current: Stroke | null = null;
@@ -116,7 +122,7 @@ export function createDrawView(onRead: (expression: string) => void, onEquals: (
   // Reading
   function renderReadAs(): void {
     if (!reading?.tokens.length) {
-      readAs.replaceChildren(el('span', 'read-as-empty', 'Write a sum below, like 2x + 3 = 11'));
+      readAs.replaceChildren(el('span', 'read-as-empty', 'Write a sum below, like 2x + 3 = 11 or an integral with its limits'));
       return;
     }
     readAs.replaceChildren(
@@ -198,7 +204,7 @@ export function createDrawView(onRead: (expression: string) => void, onEquals: (
     for (const [key, label] of choices) {
       const ids = reading.symbols.get(key);
       if (!ids || learned.has(key)) continue;
-      const target = label === '×' ? 'x' : label;
+      const target = label === '×' ? 'x' : label === '∫(' ? '∫' : label;
       const sample = addSample(samples, target, ids.map((i) => strokes[i]));
       if (!sample) continue;
       recognizer.add(target, sample);

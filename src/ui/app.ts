@@ -4,6 +4,7 @@ import type { AngleUnit } from '../core/functions';
 import { addEntry, clearHistory, groupByDay, type HistoryEntry } from '../core/history';
 import { applyKey, type Key } from '../core/keypad';
 import { workingFor } from '../core/breakdown';
+import { integralWorking } from '../core/integral-steps';
 import { solve } from '../core/solver';
 import { CATEGORIES, conversionWorking, convert, UNITS, type Category } from '../core/units';
 import { resolveValues } from '../core/variables';
@@ -37,7 +38,7 @@ type Toggle = 'DEG' | 'ENG' | 'S⇔D';
 const FUNCTION_KEYS: (Key | Toggle)[] = [
   'DEG', 'ENG', 'S⇔D', 'π', 'e', '±',
   'sin', 'cos', 'tan', 'log', 'ln', '√',
-  'sin⁻¹', 'cos⁻¹', 'tan⁻¹', '10ˣ', 'eˣ', '∛',
+  'sin⁻¹', 'cos⁻¹', 'tan⁻¹', '10ˣ', 'eˣ', '∫',
   'x²', 'xʸ', 'ⁿ√', 'x!', 'nCr', 'nPr',
   '(', ')', ',', 'abs', 'x', 'eq',
 ];
@@ -46,7 +47,7 @@ const KEY_LABELS: Partial<Record<Key | '=' | Toggle, string>> = {
   '⌫': 'Backspace', AC: 'All clear', '−': 'Minus', '×': 'Times', '÷': 'Divide by',
   ENG: 'Engineering notation', 'S⇔D': 'Show as fraction', π: 'Pi', e: 'e', '±': 'Change sign',
   'sin⁻¹': 'Inverse sine', 'cos⁻¹': 'Inverse cosine', 'tan⁻¹': 'Inverse tangent', log: 'Log base 10', ln: 'Natural log',
-  '√': 'Square root', '∛': 'Cube root', 'ⁿ√': 'Nth root', '10ˣ': 'Ten to the power', 'eˣ': 'e to the power',
+  '√': 'Square root', '∫': 'Integral: type the expression in x, then a comma, from, a comma, to', 'ⁿ√': 'Nth root', '10ˣ': 'Ten to the power', 'eˣ': 'e to the power',
   'x²': 'Square', 'xʸ': 'Power', 'x!': 'Factorial', ',': 'Comma', abs: 'Absolute value',
   x: 'Letter x', eq: 'Equals sign, to write an equation',
 };
@@ -334,6 +335,7 @@ export function renderApp(root: HTMLElement): void {
     savePref(MODE_KEY, mode);
     clearResult();
     renderMode();
+    input.focus(); // so Enter works out the sum instead of pressing the tab again
   });
   input.addEventListener('input', () => {
     justEvaluated = false;
@@ -422,7 +424,7 @@ export function renderApp(root: HTMLElement): void {
       result.classList.add('is-error');
       steps.show(null);
       renderResult();
-      result.textContent = ERROR_MESSAGES[error];
+      result.textContent = error === 'invalid' && expression.includes('∫') ? 'An integral needs its two limits: ∫(expression, from, to)' : ERROR_MESSAGES[error];
       if (focus) box(focus)?.focus();
     };
     for (const letter of values.bad) box(letter)?.setAttribute('aria-invalid', 'true');
@@ -453,7 +455,7 @@ export function renderApp(root: HTMLElement): void {
     } else {
       const outcome = calculate(expression, ans, options);
       if (!outcome.ok) return fail(outcome.error, outcome.error === 'missing-value' ? values.empty[0] : undefined);
-      steps.show(workingFor(expression, ans, options)); // before ans changes
+      steps.show(integralWorking(expression, ans, options) ?? workingFor(expression, ans, options)); // before ans changes
       result.classList.remove('is-error');
       shown = outcome;
       renderResult();

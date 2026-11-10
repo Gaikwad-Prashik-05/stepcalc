@@ -16,7 +16,7 @@ export type Key =
 const FUNCTIONS = {
   sin: 'sin', cos: 'cos', tan: 'tan', 'sin⁻¹': 'sin⁻¹', 'cos⁻¹': 'cos⁻¹', 'tan⁻¹': 'tan⁻¹',
   log: 'log', ln: 'ln', '√': '√', '∛': '∛', 'ⁿ√': 'ⁿ√', abs: 'abs', nCr: 'nCr', nPr: 'nPr',
-  '10ˣ': '10^', 'eˣ': 'e^',
+  '10ˣ': '10^', 'eˣ': 'e^', '∫': '∫',
 } as const;
 /** Keys that insert a symbol; postfix ones continue from Ans right after "=". */
 const SYMBOLS = { 'x²': '²', 'xʸ': '^', 'x!': '!', π: 'π', e: 'ℯ', '(': '(', ')': ')', ',': ',', x: 'x', eq: '=' } as const;

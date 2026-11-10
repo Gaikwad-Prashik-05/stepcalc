@@ -24,7 +24,8 @@ export default defineConfig({
     }),
   ],
   test: {
-    include: ['src/**/*.test.ts'],
+    // UJI=<data file> runs the handwriting data build instead (see scripts/handwriting-data.test.ts).
+    include: [process.env.UJI ? 'scripts/**/*.test.ts' : 'src/**/*.test.ts'],
     // Several property tests run thousands of cases; 5 s is too tight when the suite shares a busy CPU.
     testTimeout: 30_000,
   },

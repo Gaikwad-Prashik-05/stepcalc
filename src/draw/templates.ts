@@ -55,10 +55,16 @@ export const GLYPHS: Record<string, Glyph[]> = {
   g: [[poly(0.55, 0.15, 0.35, 0, 0.1, 0.12, 0.1, 0.38, 0.35, 0.48, 0.55, 0.3, 0.55, 0.15, 0.55, 0.95, 0.4, 1.15, 0.1, 1.05)]],
   e: [[poly(0.1, 0.5, 0.6, 0.5, 0.55, 0.25, 0.35, 0.05, 0.1, 0.2, 0.05, 0.55, 0.2, 0.9, 0.45, 1, 0.65, 0.85)]],
   π: [[poly(0, 0.1, 1, 0.1), poly(0.3, 0.1, 0.25, 1), poly(0.7, 0.1, 0.75, 1)]],
+  d: [[poly(0.5, 0.6, 0.3, 0.5, 0.1, 0.65, 0.1, 0.9, 0.3, 1, 0.5, 0.9, 0.5, 0, 0.5, 1)]],
+  // Twice as tall as a digit: a hook at the top, a long slanted back, a hook at the bottom.
+  '∫': [
+    [poly(0.62, 0.1, 0.52, 0, 0.42, 0.06, 0.37, 0.3, 0.33, 1, 0.29, 1.7, 0.24, 1.94, 0.14, 2, 0.04, 1.9)],
+    [poly(0.7, 0.12, 0.6, 0, 0.5, 0.1, 0.4, 0.6, 0.3, 1.4, 0.2, 1.9, 0.1, 2, 0, 1.88)],
+  ],
 };
 
 /** Every built-in template, one entry per variant. */
 export const BUILT_IN_TEMPLATES = Object.entries(GLYPHS).flatMap(([label, variants]) => variants.map((strokes) => ({ label, strokes })));
 
 /** Symbols the Teach screen offers, in keypad order. */
-export const TEACHABLE = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '+', 'x', '(', ')', '√', 'π', 'a', 'b', 'c', 'e', 'g', 'i', 'l', 'n', 'o', 's', 't', 'y'];
+export const TEACHABLE = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '+', 'x', '(', ')', '√', 'π', '∫', 'a', 'b', 'c', 'd', 'e', 'g', 'i', 'l', 'n', 'o', 's', 't', 'y'];

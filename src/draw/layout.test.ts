@@ -66,6 +66,23 @@ describe('readDrawing', () => {
     expect(readDrawing(strokes, recognizer, new Map([[fn.key!, 's·i·n']])).expression).toBe('sinx');
   });
 
+  it('reads an integral sign with its limits, up to dx', () => {
+    const parts = [at('∫', 0, 0, 60), at('0', 45, 95, 25), at('2', 50, 0, 25), at('x', 95, 40, 45), at('2', 142, 22, 22), at('d', 185, 30, 60), at('x', 235, 45, 45)];
+    expect(read(...parts)).toBe('∫(x^(2),0,2)');
+    expect(read(...parts.slice(0, 5))).toBe('∫(x^(2),0,2)'); // dx left off
+    expect(read(at('3', 0, 30, 60), ...parts.map((part) => part.map((s) => s.map((p) => ({ x: p.x + 60, y: p.y })))))).toBe('3∫(x^(2),0,2)');
+  });
+
+  it('lets a tall stroke be tapped into an integral sign and back', () => {
+    const strokes = [at('(', 0, 0, 120), at('1', 45, 95, 25), at('3', 50, 0, 25), at('x', 95, 40, 45)].flat();
+    const first = readDrawing(strokes, recognizer);
+    const bracket = first.tokens[0];
+    expect(bracket.alternatives).toContain('∫(');
+    const fixed = readDrawing(strokes, recognizer, new Map([[bracket.key!, '∫(']]));
+    expect(fixed.expression).toBe('∫(x,1,3)');
+    expect(fixed.tokens[0].alternatives![1]).toBe('(');
+  });
+
   it('reads nothing as nothing', () => {
     expect(readDrawing([], recognizer).expression).toBe('');
   });
